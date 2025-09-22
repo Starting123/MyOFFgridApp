@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// BLE Service for small payload transfer and device discovery
 /// Note: BLE has limited throughput. Use this for:
@@ -87,7 +89,7 @@ class BLEService {
 
   Future<void> sendSmallMessage(BluetoothDevice device, Map<String, dynamic> message) async {
     try {
-      await device.connect();
+      await device.connect(autoConnect: false, timeout: const Duration(seconds: 15), license: '');
       
       final services = await device.discoverServices();
       final service = services.firstWhere(
@@ -103,7 +105,7 @@ class BLEService {
         throw Exception('Message too large for BLE transfer');
       }
 
-      await characteristic.write(data);
+      await characteristic.write(data, withoutResponse: true);
       await device.disconnect();
     } catch (e) {
       debugPrint('Error sending BLE message: $e');
@@ -137,14 +139,26 @@ extension BluetoothPermissions on BLEService {
   Future<bool> requestPermissions() async {
     try {
       // Request location permission (required for BLE scanning)
-      final locationGranted = await FlutterBluePlus.isLocationGranted;
-      if (!locationGranted) {
+      final locationStatus = await Permission.location.request();
+      if (!locationStatus.isGranted) {
         debugPrint('Location permission denied');
         return false;
       }
 
-      // Check and request Bluetooth permissions
-      if (!await FlutterBluePlus.isOn) {
+      // Request Bluetooth permissions on Android
+      if (Platform.isAndroid) {
+        final bluetoothScan = await Permission.bluetoothScan.request();
+        final bluetoothConnect = await Permission.bluetoothConnect.request();
+        final bluetoothAdvertise = await Permission.bluetoothAdvertise.request();
+        
+        if (!bluetoothScan.isGranted || !bluetoothConnect.isGranted || !bluetoothAdvertise.isGranted) {
+          debugPrint('Bluetooth permissions denied');
+          return false;
+        }
+      }
+
+      // Check if Bluetooth is on
+      if (await FlutterBluePlus.adapterState.first == BluetoothAdapterState.off) {
         await FlutterBluePlus.turnOn();
       }
 

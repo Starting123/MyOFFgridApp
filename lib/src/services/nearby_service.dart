@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:nearby_connections/nearby_connections.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class NearbyService {
   static final NearbyService _instance = NearbyService._internal();
@@ -22,16 +24,26 @@ class NearbyService {
 
   // Initialize and request permissions
   Future<bool> initialize() async {
-    if (!await _nearby.checkLocationEnabled()) {
+    try {
+      // Permission handling is now done through permission_handler
+      final locationStatus = await Permission.location.request();
+      if (!locationStatus.isGranted) {
+        return false;
+      }
+      
+      if (Platform.isAndroid) {
+        final bluetoothStatus = await Permission.bluetoothConnect.request();
+        final bluetoothScanStatus = await Permission.bluetoothScan.request();
+        if (!bluetoothStatus.isGranted || !bluetoothScanStatus.isGranted) {
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('Error initializing nearby service: $e');
       return false;
     }
-    
-    final permissionStatus = await _nearby.askLocationPermission();
-    if (!permissionStatus) {
-      return false;
-    }
-    
-    return true;
   }
 
   // Start advertising as an SOS device
@@ -64,7 +76,10 @@ class NearbyService {
         _serviceId,
         Strategy.P2P_CLUSTER,
         onEndpointFound: _onEndpointFound,
-        onEndpointLost: _onEndpointLost,
+        onEndpointLost: (endpointId) {
+          _connectedEndpoints.remove(endpointId);
+          debugPrint('Endpoint lost: $endpointId');
+        } as OnEndpointLost,
         serviceId: _serviceId,
       );
       _isDiscovering = true;
@@ -161,10 +176,6 @@ class NearbyService {
       onConnectionResult: _onConnectionResult,
       onDisconnected: _onDisconnected,
     );
-  }
-
-  void _onEndpointLost(String endpointId) {
-    debugPrint('Endpoint lost: $endpointId');
   }
 
   void _onPayloadReceived(String endpointId, Payload payload) {

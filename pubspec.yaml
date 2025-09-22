@@ -19,6 +19,9 @@ dependencies:
   nearby_connections: ^4.3.0
   sqflite: ^2.2.8+4
   path: ^1.8.4
+  http: ^1.2.1
+  encrypt: ^5.0.3
+  pointycastle: ^3.7.3
 
 dev_dependencies:
   flutter_test:
