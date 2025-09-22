@@ -5,6 +5,7 @@ import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/sos_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: OffGridSOSApp()));
 }
 
