@@ -3,13 +3,15 @@
 <plist version="1.0">
 <dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>ใช้ Bluetooth เพื่อค้นหาและเชื่อมต่ออุปกรณ์ใกล้เคียงในกรณีฉุกเฉิน</string>
+	<string>Bluetooth is used to discover and connect to nearby devices in emergency situations</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>ใช้ Bluetooth เพื่อส่งข้อมูลฉุกเฉินให้อุปกรณ์ใกล้เคียง</string>
+	<string>Bluetooth is used to send emergency information to nearby devices</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ใช้ตำแหน่งเพื่อส่งพิกัด SOS ให้ผู้ช่วยเหลือ</string>
+	<string>Location is used to send SOS coordinates to helpers</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Location access is needed to maintain P2P connections in the background</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>ใช้เครือข่ายเพื่อส่งข้อมูลระหว่างอุปกรณ์ในกรณีฉุกเฉิน</string>
+	<string>Local network is used for device-to-device communication in emergencies</string>
 	
 	<key>UIBackgroundModes</key>
 	<array>
