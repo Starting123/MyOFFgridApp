@@ -53,7 +53,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
 
     // Send via P2P service
-    P2PService.instance.sendMessage('peer_id', {
+    P2PService.instance.broadcast({
       'type': 'message',
       'data': message.toMap(),
     });
