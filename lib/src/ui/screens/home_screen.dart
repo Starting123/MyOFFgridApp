@@ -1,92 +1,200 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class HomeScreen extends StatefulWidget {
+// Providers
+final sosActiveProvider = StateNotifierProvider<SOSNotifier, bool>((ref) {
+  return SOSNotifier();
+});
+
+final rescuerModeProvider = StateNotifierProvider<RescuerModeNotifier, bool>((ref) {
+  return RescuerModeNotifier();
+});
+
+final nearbyDevicesProvider = StateNotifierProvider<NearbyDevicesNotifier, List<NearbyDevice>>((ref) {
+  return NearbyDevicesNotifier();
+});
+
+// State Notifiers
+class SOSNotifier extends StateNotifier<bool> {
+  SOSNotifier() : super(false);
+
+  void toggle() {
+    state = !state;
+    // TODO: Trigger P2P broadcast when SOS is active
+    if (state) {
+      // Start broadcasting SOS signal
+      // P2PService.instance.broadcast({'type': 'sos', 'active': true});
+    } else {
+      // Stop broadcasting SOS signal
+      // P2PService.instance.stopDiscovery();
+    }
+  }
+}
+
+class RescuerModeNotifier extends StateNotifier<bool> {
+  RescuerModeNotifier() : super(false);
+
+  void toggle() {
+    state = !state;
+    // TODO: Start/stop scanning for SOS signals
+    if (state) {
+      // P2PService.instance.startDiscovery();
+    } else {
+      // P2PService.instance.stopDiscovery();
+    }
+  }
+}
+
+class NearbyDevicesNotifier extends StateNotifier<List<NearbyDevice>> {
+  NearbyDevicesNotifier() : super([
+    NearbyDevice(id: '1', name: 'Device 1', isSOS: true),
+    NearbyDevice(id: '2', name: 'Device 2', isSOS: false),
+  ]);
+
+  void addDevice(NearbyDevice device) {
+    state = [...state, device];
+  }
+
+  void removeDevice(String id) {
+    state = state.where((device) => device.id != id).toList();
+  }
+}
+
+// Models
+class NearbyDevice {
+  final String id;
+  final String name;
+  final bool isSOS;
+
+  NearbyDevice({
+    required this.id,
+    required this.name,
+    required this.isSOS,
+  });
+}
+
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sosActive = ref.watch(sosActiveProvider);
+    final rescuerMode = ref.watch(rescuerModeProvider);
+    final nearbyDevices = ref.watch(nearbyDevicesProvider);
 
-class _HomeScreenState extends State<HomeScreen> {
-  bool sosActive = false;
-  bool isRescuer = false;
-
-  final List<String> nearbyDevices = [
-    'Device A',
-    'Device B',
-    'Device C',
-  ];
-
-  void toggleSOS() {
-    setState(() {
-      sosActive = !sosActive;
-    });
-  }
-
-  void toggleRescuer() {
-    setState(() {
-      isRescuer = !isRescuer;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Off-Grid SOS'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.message),
+            onPressed: () => Navigator.pushNamed(context, '/chat'),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: sosActive ? Colors.red[700] : Colors.red,
-                minimumSize: const Size(double.infinity, 64),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            // SOS Button
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => ref.read(sosActiveProvider.notifier).toggle(),
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: sosActive ? Colors.red : Colors.grey,
+                      boxShadow: [
+                        BoxShadow(
+                          color: sosActive ? Colors.red.withOpacity(0.3) : Colors.black12,
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'SOS',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              onPressed: toggleSOS,
-              child: Text(
-                sosActive ? 'SOS ACTIVE' : 'SEND SOS',
-                style: const TextStyle(fontSize: 22, color: Colors.white),
+            ),
+            
+            // Rescuer Mode Switch
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              decoration: BoxDecoration(
+                color: rescuerMode ? Colors.blue.withOpacity(0.1) : null,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Rescuer Mode',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 16),
+                  Switch(
+                    value: rescuerMode,
+                    onChanged: (value) => ref.read(rescuerModeProvider.notifier).toggle(),
+                    activeColor: Colors.blue,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isRescuer ? Colors.blue[700] : Colors.blue,
-                minimumSize: const Size(double.infinity, 52),
-              ),
-              onPressed: toggleRescuer,
-              child: Text(
-                isRescuer ? 'Rescuer Mode: ON' : 'Rescuer Mode: OFF',
-                style: const TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
-            const SizedBox(height: 20),
+
+            const SizedBox(height: 16),
+
+            // Nearby Devices List
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Nearby Devices',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 8),
             Expanded(
+              flex: 3,
               child: ListView.builder(
                 itemCount: nearbyDevices.length,
                 itemBuilder: (context, index) {
+                  final device = nearbyDevices[index];
                   return Card(
                     child: ListTile(
-                      leading: const Icon(Icons.wifi_tethering),
-                      title: Text(nearbyDevices[index]),
-                      subtitle: const Text('Distance: ~5m (dummy)'),
-                      trailing: ElevatedButton(
-                        onPressed: () {},
-                        child: const Text('Connect'),
+                      leading: Icon(
+                        Icons.phone_android,
+                        color: device.isSOS ? Colors.red : Colors.blue,
                       ),
+                      title: Text(device.name),
+                      subtitle: Text(device.isSOS ? 'SOS Active' : 'Online'),
+                      trailing: device.isSOS
+                          ? const Icon(Icons.warning, color: Colors.red)
+                          : IconButton(
+                              icon: const Icon(Icons.message),
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/chat',
+                                  arguments: device,
+                                );
+                              },
+                            ),
                     ),
                   );
                 },

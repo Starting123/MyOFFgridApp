@@ -4,8 +4,19 @@
 <dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>ใช้ Bluetooth เพื่อค้นหาและเชื่อมต่ออุปกรณ์ใกล้เคียงในกรณีฉุกเฉิน</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>ใช้ Bluetooth เพื่อส่งข้อมูลฉุกเฉินให้อุปกรณ์ใกล้เคียง</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ใช้ตำแหน่งเพื่อส่งพิกัด SOS ให้ผู้ช่วยเหลือ</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>ใช้เครือข่ายเพื่อส่งข้อมูลระหว่างอุปกรณ์ในกรณีฉุกเฉิน</string>
+	
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+		<string>nearby-interaction</string>
+	</array>
 
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>

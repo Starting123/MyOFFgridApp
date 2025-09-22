@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/ui/screens/home_screen.dart';
+import 'src/ui/screens/chat_screen.dart';
+import 'src/ui/screens/sos_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: OffGridSOSApp()));
@@ -14,16 +16,42 @@ class OffGridSOSApp extends StatelessWidget {
     return MaterialApp(
       title: 'Off-Grid SOS',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          primary: Colors.blue,
+          secondary: Colors.red,
+          error: Colors.red,
+          brightness: Brightness.light,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+        ),
       ),
-      home: const HomeScreen(),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          primary: Colors.blue,
+          secondary: Colors.red,
+          error: Colors.red,
+          brightness: Brightness.dark,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+        ),
+      ),
+      initialRoute: '/',
       routes: {
-        '/login': (context) => const Scaffold(body: Center(child: Text('Login (TODO)'))),
+        '/': (context) => const HomeScreen(),
         '/home': (context) => const HomeScreen(),
-        '/chat': (context) => const Scaffold(body: Center(child: Text('Chat (TODO)'))),
-        '/sos': (context) => const Scaffold(body: Center(child: Text('SOS (TODO)'))),
+        '/chat': (context) => const ChatScreen(),
+        '/sos': (context) => const SOSScreen(),
       },
     );
   }
 }
-// Entry point is above (OffGridSOSApp)
