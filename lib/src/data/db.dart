@@ -1,172 +1,677 @@
-import 'dart:io';import 'dart:io';
+// Database schema and operations for the offline-first SOS appimport 'dart:io';import 'dart:io';import 'dart:io';import 'dart:io';
+
+import 'dart:io';
 
 import 'package:drift/drift.dart';import 'package:drift/drift.dart';
 
-import 'package:drift/native.dart';import 'package:drift/native.dart';
+import 'package:drift/native.dart';
 
-import 'package:path_provider/path_provider.dart';import 'package:path_provider/path_provider.dart';
+import 'package:path_provider/path_provider.dart';import 'package:drift/native.dart';import 'package:drift/drift.dart';
 
-import 'package:path/path.dart' as p;import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as p;
 
-
-
-part 'db.g.dart';
+import 'package:path_provider/path_provider.dart';
 
 part 'db.g.dart';
+
+import 'package:path/path.dart' as p;import 'package:drift/native.dart';import 'package:drift/drift.dart';import 'package:drift/drift.dart';
+
+@DataClassName('Message')
 
 class Messages extends Table {
 
-  IntColumn get id => integer().autoIncrement()();part 'db.g.dart';
+  IntColumn get id => integer().autoIncrement()();
 
-  TextColumn get messageId => text().unique()();
+  TextColumn get messageId => text().unique()();part 'db.g.dart';import 'package:path_provider/path_provider.dart';
 
-  TextColumn get fromId => text()();class Messages extends Table {
+  TextColumn get fromId => text()();
 
-  TextColumn get toId => text()();  IntColumn get id => integer().autoIncrement()();
+  TextColumn get toId => text()();
 
-  TextColumn get type => text()();  TextColumn get messageId => text().unique()();
+  TextColumn get type => text()();
 
-  TextColumn get body => text()();  TextColumn get fromId => text()();
+  TextColumn get body => text()();@DataClassName('Message')import 'package:path/path.dart' as p;import 'package:drift/native.dart';import 'package:drift/native.dart';
 
-  TextColumn get filePath => text().nullable()();  TextColumn get toId => text()();
+  TextColumn get filePath => text().nullable()();
 
-  DateTimeColumn get timestamp => dateTime()();  TextColumn get type => text()();
-
-  TextColumn get status => text().withDefault(const Constant('pending'))();  TextColumn get body => text()();
-
-  IntColumn get ttl => integer().withDefault(const Constant(24))();  TextColumn get filePath => text().nullable()();
-
-  IntColumn get hopCount => integer().withDefault(const Constant(0))();  DateTimeColumn get timestamp => dateTime()();
+  DateTimeColumn get timestamp => dateTime()();class Messages extends Table {
 
   TextColumn get status => text().withDefault(const Constant('pending'))();
 
-  @override  IntColumn get ttl => integer().withDefault(const Constant(24))();
+  IntColumn get ttl => integer().withDefault(const Constant(24))();  IntColumn get id => integer().autoIncrement()();
 
-  List<String> get customConstraints => [  IntColumn get hopCount => integer().withDefault(const Constant(0))();
+  IntColumn get hopCount => integer().withDefault(const Constant(0))();
 
-    'CONSTRAINT message_unique_id UNIQUE (messageId)',
+  BoolColumn get isEncrypted => boolean().withDefault(const Constant(true))();  TextColumn get messageId => text().unique()();
 
-  ];  @override
 
-}  List<String> get customConstraints => [
 
-    'CONSTRAINT message_idx UNIQUE (messageId)',
+  @override  TextColumn get fromId => text()();part 'db.g.dart';import 'package:path_provider/path_provider.dart';import 'package:path_provider/path_provider.dart';
 
-class QueueItems extends Table {    'CREATE INDEX message_status_idx ON messages(status)',
+  List<String> get customConstraints => [
 
-  IntColumn get id => integer().autoIncrement()();    'CREATE INDEX message_timestamp_idx ON messages(timestamp)',
+        'CONSTRAINT message_unique_id UNIQUE (messageId)',  TextColumn get toId => text()();
 
-  TextColumn get messageId => text().references(Messages, #messageId)();  ];
+      ];
 
-  TextColumn get targetId => text()();}
+}  TextColumn get type => text()();
+
+
+
+@DataClassName('QueueItem')  TextColumn get body => text()();
+
+class MessageQueue extends Table {
+
+  IntColumn get id => integer().autoIncrement()();  TextColumn get filePath => text().nullable()();@DataClassName('Message')import 'package:path/path.dart' as p;import 'package:path/path.dart' as p;
+
+  TextColumn get messageId => text().references(Messages, #messageId, onDelete: KeyAction.cascade)();
+
+  TextColumn get targetId => text()();  DateTimeColumn get timestamp => dateTime()();
 
   DateTimeColumn get nextAttempt => dateTime()();
 
-  IntColumn get attempts => integer().withDefault(const Constant(0))();class QueueItems extends Table {
+  IntColumn get attempts => integer().withDefault(const Constant(0))();  TextColumn get status => text().withDefault(const Constant('pending'))();class Messages extends Table {
 
-  TextColumn get status => text().withDefault(const Constant('pending'))();  IntColumn get id => integer().autoIncrement()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
 
-}  TextColumn get messageId => text()();
+  TextColumn get transportType => text()(); // 'ble', 'p2p', or 'cloud'  IntColumn get ttl => integer().withDefault(const Constant(24))();
 
-  TextColumn get targetId => text()();
 
-class SyncLogs extends Table {  DateTimeColumn get nextAttempt => dateTime()();
 
-  IntColumn get id => integer().autoIncrement()();  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  @override  IntColumn get hopCount => integer().withDefault(const Constant(0))();  IntColumn get id => integer().autoIncrement()();
 
-  TextColumn get messageId => text().references(Messages, #messageId)();  TextColumn get status => text().withDefault(const Constant('pending'))();
+  List<String> get customConstraints => [
+
+        'CREATE INDEX idx_message_queue_status ON message_queue(status)',  BoolColumn get isEncrypted => boolean().withDefault(const Constant(true))();
+
+        'CREATE INDEX idx_message_queue_next_attempt ON message_queue(next_attempt)',
+
+      ];  TextColumn get messageId => text().unique()();
+
+}
+
+  @override
+
+@DataClassName('SyncLog')
+
+class SyncLogs extends Table {  List<String> get customConstraints => [  TextColumn get fromId => text()();part 'db.g.dart';
+
+  IntColumn get id => integer().autoIncrement()();
+
+  TextColumn get messageId => text().references(Messages, #messageId, onDelete: KeyAction.cascade)();        'CONSTRAINT message_unique_id UNIQUE (messageId)',
 
   TextColumn get operation => text()();
 
-  DateTimeColumn get timestamp => dateTime()();  @override
+  DateTimeColumn get timestamp => dateTime()();      ];  TextColumn get toId => text()();
 
-  TextColumn get status => text()();  List<String> get customConstraints => [
+  TextColumn get status => text()();
 
-  TextColumn get error => text().nullable()();    'FOREIGN KEY (messageId) REFERENCES messages(messageId) ON DELETE CASCADE',
+  TextColumn get error => text().nullable()();}
 
-}    'CREATE INDEX queue_message_idx ON queue_items(messageId)',
+  
 
-    'CREATE INDEX queue_status_idx ON queue_items(status)',
+  @override  TextColumn get type => text()();part 'db.g.dart';
 
-@DriftDatabase(tables: [Messages, QueueItems, SyncLogs])    'CREATE INDEX queue_next_attempt_idx ON queue_items(nextAttempt)',
+  List<String> get customConstraints => [
 
-class AppDatabase extends _$AppDatabase {  ];
+        'CREATE INDEX idx_sync_logs_message ON sync_logs(message_id)',@DataClassName('QueueItem')
 
-  AppDatabase() : super(_openConnection());}
+        'CREATE INDEX idx_sync_logs_timestamp ON sync_logs(timestamp)',
 
+      ];class MessageQueue extends Table {  TextColumn get body => text()();
 
+}
 
-  @overrideclass SyncLogs extends Table {
+  IntColumn get id => integer().autoIncrement()();
 
-  int get schemaVersion => 1;  IntColumn get id => integer().autoIncrement()();
+@DriftDatabase(tables: [Messages, MessageQueue, SyncLogs])
 
-  TextColumn get messageId => text()();
-
-  @override  TextColumn get operation => text()();
-
-  MigrationStrategy get migration {  DateTimeColumn get timestamp => dateTime()();
-
-    return MigrationStrategy(  TextColumn get status => text()();
-
-      onCreate: (m) async {  TextColumn get error => text().nullable()();
-
-        await m.createAll();
-
-        await customStatement('PRAGMA foreign_keys = ON');  @override
-
-      },  List<String> get customConstraints => [
-
-      beforeOpen: (details) async {    'FOREIGN KEY (messageId) REFERENCES messages(messageId) ON DELETE CASCADE',
-
-        await customStatement('PRAGMA foreign_keys = ON');    'CREATE INDEX sync_message_idx ON sync_logs(messageId)',
-
-      },    'CREATE INDEX sync_timestamp_idx ON sync_logs(timestamp)',
-
-    );  ];
-
-  }}
-
-
-
-  Future<int> createMessage(MessagesCompanion message) => @DriftDatabase(tables: [Messages, QueueItems, SyncLogs])
-
-    into(messages).insert(message);class AppDatabase extends _$AppDatabase {
+class AppDatabase extends _$AppDatabase {  TextColumn get messageId => text().references(Messages, #messageId, onDelete: KeyAction.cascade)();  TextColumn get filePath => text().nullable()();class Messages extends Table {
 
   AppDatabase() : super(_openConnection());
 
-  Future<Message?> getMessage(String messageId) =>
+  TextColumn get targetId => text()();
 
-    (select(messages)..where((m) => m.messageId.equals(messageId)))  @override
+  @override
 
-        .getSingleOrNull();  int get schemaVersion => 1;
+  int get schemaVersion => 1;  DateTimeColumn get nextAttempt => dateTime()();  DateTimeColumn get timestamp => dateTime()();
 
 
 
-  Future<List<Message>> getUnsentMessages() =>  @override
+  @override  IntColumn get attempts => integer().withDefault(const Constant(0))();
 
-    (select(messages)..where((m) => m.status.equals('pending')))  MigrationStrategy get migration {
+  MigrationStrategy get migration {
 
-        .get();    return MigrationStrategy(
+    return MigrationStrategy(  TextColumn get status => text().withDefault(const Constant('pending'))();  TextColumn get status => text().withDefault(const Constant('pending'))();  IntColumn get id => integer().autoIncrement()();part 'db.g.dart';
 
       onCreate: (m) async {
 
+        await m.createAll();  TextColumn get transportType => text()(); // 'ble', 'p2p', or 'cloud'
+
+      },
+
+      onUpgrade: (m, from, to) async {  IntColumn get ttl => integer().withDefault(const Constant(24))();
+
+        if (from < 1) {
+
+          // Add future migrations here  @override
+
+        }
+
+      },  List<String> get customConstraints => [  IntColumn get hopCount => integer().withDefault(const Constant(0))();  TextColumn get messageId => text().unique()();
+
+      beforeOpen: (details) async {
+
+        await customStatement('PRAGMA foreign_keys = ON');        'CREATE INDEX idx_message_queue_status ON message_queue(status)',
+
+      },
+
+    );        'CREATE INDEX idx_message_queue_next_attempt ON message_queue(next_attempt)',  BoolColumn get isEncrypted => boolean().withDefault(const Constant(true))();
+
+  }
+
+      ];
+
+  // Message Operations
+
+  Future<int> createMessage(MessagesCompanion message) =>}  TextColumn get fromId => text()();class Messages extends Table {
+
+      into(messages).insert(message);
+
+
+
+  Future<Message?> getMessage(String messageId) =>
+
+      (select(messages)..where((m) => m.messageId.equals(messageId)))@DataClassName('SyncLog')  @override
+
+          .getSingleOrNull();
+
+class SyncLogs extends Table {
+
+  Future<List<Message>> getPendingMessages() =>
+
+      (select(messages)..where((m) => m.status.equals('pending'))).get();  IntColumn get id => integer().autoIncrement()();  List<String> get customConstraints => [  TextColumn get toId => text()();  IntColumn get id => integer().autoIncrement()();
+
+
+
+  Future<bool> updateMessageStatus(String messageId, String status) async {  TextColumn get messageId => text().references(Messages, #messageId, onDelete: KeyAction.cascade)();
+
+    return transaction(() async {
+
+      final count = await (update(messages)  TextColumn get operation => text()();        'CONSTRAINT message_unique_id UNIQUE (messageId)',
+
+            ..where((m) => m.messageId.equals(messageId)))
+
+          .write(MessagesCompanion(status: Value(status)));  DateTimeColumn get timestamp => dateTime()();
+
+      return count > 0;
+
+    });  TextColumn get status => text()();      ];  TextColumn get type => text()();  TextColumn get messageId => text().unique()();
+
+  }
+
+  TextColumn get error => text().nullable()();
+
+  // Queue Operations
+
+  Future<int> queueMessage(MessageQueueCompanion item) =>  }
+
+      into(messageQueue).insert(item);
+
+  @override
+
+  Future<List<QueueItem>> getPendingQueueItems() =>
+
+      (select(messageQueue)  List<String> get customConstraints => [  TextColumn get body => text()();  TextColumn get fromId => text()();
+
+        ..where((q) => q.status.equals('pending'))
+
+        ..orderBy([(q) => OrderingTerm(expression: q.nextAttempt)]))        'CREATE INDEX idx_sync_logs_message ON sync_logs(message_id)',
+
+          .get();
+
+        'CREATE INDEX idx_sync_logs_timestamp ON sync_logs(timestamp)',@DataClassName('QueueItem')
+
+  Future<void> updateQueueItemStatus(int id, String status, {DateTime? nextAttempt}) =>
+
+      (update(messageQueue)..where((q) => q.id.equals(id)))      ];
+
+          .write(MessageQueueCompanion(
+
+            status: Value(status),}class MessageQueue extends Table {  TextColumn get filePath => text().nullable()();  TextColumn get toId => text()();
+
+            nextAttempt: nextAttempt == null ? const Value.absent() : Value(nextAttempt),
+
+            attempts: Value(messageQueue.attempts + 1),
+
+          ));
+
+@DriftDatabase(tables: [Messages, MessageQueue, SyncLogs])  IntColumn get id => integer().autoIncrement()();
+
+  // Sync Operations
+
+  Future<void> logSync(class AppDatabase extends _$AppDatabase {
+
+      String messageId, String operation, String status, {String? error}) =>
+
+      into(syncLogs).insert(SyncLogsCompanion.insert(  AppDatabase() : super(_openConnection());  TextColumn get messageId => text().references(Messages, #messageId, onDelete: KeyAction.cascade)();  DateTimeColumn get timestamp => dateTime()();  TextColumn get type => text()();
+
+        messageId: messageId,
+
+        operation: operation,
+
+        timestamp: DateTime.now(),
+
+        status: status,  @override  TextColumn get targetId => text()();
+
+        error: Value(error),
+
+      ));  int get schemaVersion => 1;
+
+
+
+  // Cleanup Operations  DateTimeColumn get nextAttempt => dateTime()();  TextColumn get status => text().withDefault(const Constant('pending'))();  TextColumn get body => text()();
+
+  Future<void> cleanup() async {
+
+    final now = DateTime.now();  @override
+
+    await transaction(() async {
+
+      // Delete old delivered messages  MigrationStrategy get migration {  IntColumn get attempts => integer().withDefault(const Constant(0))();
+
+      await (delete(messages)
+
+        ..where((m) =>    return MigrationStrategy(
+
+            m.status.equals('delivered') &
+
+            m.timestamp.isSmallerThanValue(now.subtract(const Duration(days: 7)))))      onCreate: (m) async {  TextColumn get status => text().withDefault(const Constant('pending'))();  IntColumn get ttl => integer().withDefault(const Constant(24))();  TextColumn get filePath => text().nullable()();
+
+          .go();
+
+        await m.createAll();
+
+      // Delete failed queue items after 24 hours
+
+      await (delete(messageQueue)      },  TextColumn get transportType => text()(); // 'ble', 'p2p', or 'cloud'
+
+        ..where((q) =>
+
+            q.status.equals('failed') &      onUpgrade: (m, from, to) async {
+
+            q.nextAttempt.isSmallerThanValue(now.subtract(const Duration(hours: 24)))))
+
+          .go();        if (from < 1) {  IntColumn get hopCount => integer().withDefault(const Constant(0))();  DateTimeColumn get timestamp => dateTime()();
+
+
+
+      // Delete old sync logs          // Add future migrations here
+
+      await (delete(syncLogs)
+
+        ..where((s) =>        }  @override
+
+            s.timestamp.isSmallerThanValue(now.subtract(const Duration(days: 30)))))
+
+          .go();      },
+
+    });
+
+  }      beforeOpen: (details) async {  List<String> get customConstraints => [  TextColumn get status => text().withDefault(const Constant('pending'))();
+
+}
+
+        await customStatement('PRAGMA foreign_keys = ON');
+
+LazyDatabase _openConnection() {
+
+  return LazyDatabase(() async {      },        'CREATE INDEX idx_message_queue_status ON message_queue(status)',
+
+    final dbFolder = await getApplicationDocumentsDirectory();
+
+    final file = File(p.join(dbFolder.path, 'app.db'));    );
+
+    return NativeDatabase(file);
+
+  });  }        'CREATE INDEX idx_message_queue_next_attempt ON message_queue(next_attempt)',  @override  IntColumn get ttl => integer().withDefault(const Constant(24))();
+
+}
+
+
+  // Message Operations      ];
+
+  Future<int> createMessage(MessagesCompanion message) =>
+
+      into(messages).insert(message);}  List<String> get customConstraints => [  IntColumn get hopCount => integer().withDefault(const Constant(0))();
+
+
+
+  Future<Message?> getMessage(String messageId) =>
+
+      (select(messages)..where((m) => m.messageId.equals(messageId)))
+
+          .getSingleOrNull();@DataClassName('SyncLog')    'CONSTRAINT message_unique_id UNIQUE (messageId)',
+
+
+
+  Future<List<Message>> getPendingMessages() =>class SyncLogs extends Table {
+
+      (select(messages)..where((m) => m.status.equals('pending'))).get();
+
+  IntColumn get id => integer().autoIncrement()();  ];  @override
+
+  Future<bool> updateMessageStatus(String messageId, String status) async {
+
+    return transaction(() async {  TextColumn get messageId => text().references(Messages, #messageId, onDelete: KeyAction.cascade)();
+
+      final count = await (update(messages)
+
+            ..where((m) => m.messageId.equals(messageId)))  TextColumn get operation => text()();}  List<String> get customConstraints => [
+
+          .write(MessagesCompanion(status: Value(status)));
+
+      return count > 0;  DateTimeColumn get timestamp => dateTime()();
+
+    });
+
+  }  TextColumn get status => text()();    'CONSTRAINT message_idx UNIQUE (messageId)',
+
+
+
+  // Queue Operations  TextColumn get error => text().nullable()();
+
+  Future<int> queueMessage(MessageQueueCompanion item) =>
+
+      into(messageQueue).insert(item);  class QueueItems extends Table {    'CREATE INDEX message_status_idx ON messages(status)',
+
+
+
+  Future<List<QueueItem>> getPendingQueueItems() =>  @override
+
+      (select(messageQueue)
+
+        ..where((q) => q.status.equals('pending'))  List<String> get customConstraints => [  IntColumn get id => integer().autoIncrement()();    'CREATE INDEX message_timestamp_idx ON messages(timestamp)',
+
+        ..orderBy([(q) => OrderingTerm(expression: q.nextAttempt)]))
+
+          .get();        'CREATE INDEX idx_sync_logs_message ON sync_logs(message_id)',
+
+
+
+  Future<void> updateQueueItemStatus(int id, String status, {DateTime? nextAttempt}) =>        'CREATE INDEX idx_sync_logs_timestamp ON sync_logs(timestamp)',  TextColumn get messageId => text().references(Messages, #messageId)();  ];
+
+      (update(messageQueue)..where((q) => q.id.equals(id)))
+
+          .write(MessageQueueCompanion(      ];
+
+            status: Value(status),
+
+            nextAttempt: nextAttempt == null ? const Value.absent() : Value(nextAttempt),}  TextColumn get targetId => text()();}
+
+            attempts: Value(messageQueue.attempts + 1),
+
+          ));
+
+
+
+  // Sync Operations@DriftDatabase(tables: [Messages, MessageQueue, SyncLogs])  DateTimeColumn get nextAttempt => dateTime()();
+
+  Future<void> logSync(
+
+      String messageId, String operation, String status, {String? error}) =>class AppDatabase extends _$AppDatabase {
+
+      into(syncLogs).insert(SyncLogsCompanion.insert(
+
+        messageId: messageId,  AppDatabase() : super(_openConnection());  IntColumn get attempts => integer().withDefault(const Constant(0))();class QueueItems extends Table {
+
+        operation: operation,
+
+        timestamp: DateTime.now(),
+
+        status: status,
+
+        error: Value(error),  @override  TextColumn get status => text().withDefault(const Constant('pending'))();  IntColumn get id => integer().autoIncrement()();
+
+      ));
+
+  int get schemaVersion => 1;
+
+  // Cleanup Operations
+
+  Future<void> cleanup() async {}  TextColumn get messageId => text()();
+
+    final now = DateTime.now();
+
+    await transaction(() async {  @override
+
+      // Delete old delivered messages
+
+      await (delete(messages)  MigrationStrategy get migration {  TextColumn get targetId => text()();
+
+        ..where((m) =>
+
+            m.status.equals('delivered') &    return MigrationStrategy(
+
+            m.timestamp.isSmallerThanValue(now.subtract(const Duration(days: 7)))))
+
+          .go();      onCreate: (m) async {class SyncLogs extends Table {  DateTimeColumn get nextAttempt => dateTime()();
+
+
+
+      // Delete failed queue items after 24 hours        await m.createAll();
+
+      await (delete(messageQueue)
+
+        ..where((q) =>      },  IntColumn get id => integer().autoIncrement()();  IntColumn get attempts => integer().withDefault(const Constant(0))();
+
+            q.status.equals('failed') &
+
+            q.nextAttempt.isSmallerThanValue(now.subtract(const Duration(hours: 24)))))      onUpgrade: (m, from, to) async {
+
+          .go();
+
+        if (from < 1) {  TextColumn get messageId => text().references(Messages, #messageId)();  TextColumn get status => text().withDefault(const Constant('pending'))();
+
+      // Delete old sync logs
+
+      await (delete(syncLogs)          // Add future migrations here
+
+        ..where((s) =>
+
+            s.timestamp.isSmallerThanValue(now.subtract(const Duration(days: 30)))))        }  TextColumn get operation => text()();
+
+          .go();
+
+    });      },
+
+  }
+
+}      beforeOpen: (details) async {  DateTimeColumn get timestamp => dateTime()();  @override
+
+
+
+LazyDatabase _openConnection() {        await customStatement('PRAGMA foreign_keys = ON');
+
+  return LazyDatabase(() async {
+
+    final dbFolder = await getApplicationDocumentsDirectory();      },  TextColumn get status => text()();  List<String> get customConstraints => [
+
+    final file = File(p.join(dbFolder.path, 'app.db'));
+
+    return NativeDatabase(file);    );
+
+  });
+
+}  }  TextColumn get error => text().nullable()();    'FOREIGN KEY (messageId) REFERENCES messages(messageId) ON DELETE CASCADE',
+
+
+
+  // Message Operations}    'CREATE INDEX queue_message_idx ON queue_items(messageId)',
+
+  Future<int> createMessage(MessagesCompanion message) =>
+
+      into(messages).insert(message);    'CREATE INDEX queue_status_idx ON queue_items(status)',
+
+
+
+  Future<Message?> getMessage(String messageId) =>@DriftDatabase(tables: [Messages, QueueItems, SyncLogs])    'CREATE INDEX queue_next_attempt_idx ON queue_items(nextAttempt)',
+
+      (select(messages)..where((m) => m.messageId.equals(messageId)))
+
+          .getSingleOrNull();class AppDatabase extends _$AppDatabase {  ];
+
+
+
+  Future<List<Message>> getPendingMessages() =>  AppDatabase() : super(_openConnection());}
+
+      (select(messages)..where((m) => m.status.equals('pending'))).get();
+
+
+
+  Future<bool> updateMessageStatus(String messageId, String status) async {
+
+    return transaction(() async {  @overrideclass SyncLogs extends Table {
+
+      final count = await (update(messages)
+
+            ..where((m) => m.messageId.equals(messageId)))  int get schemaVersion => 1;  IntColumn get id => integer().autoIncrement()();
+
+          .write(MessagesCompanion(status: Value(status)));
+
+      return count > 0;  TextColumn get messageId => text()();
+
+    });
+
+  }  @override  TextColumn get operation => text()();
+
+
+
+  // Queue Operations  MigrationStrategy get migration {  DateTimeColumn get timestamp => dateTime()();
+
+  Future<int> queueMessage(MessageQueueCompanion item) =>
+
+      into(messageQueue).insert(item);    return MigrationStrategy(  TextColumn get status => text()();
+
+
+
+  Future<List<QueueItem>> getPendingQueueItems() =>      onCreate: (m) async {  TextColumn get error => text().nullable()();
+
+      (select(messageQueue)
+
+        ..where((q) => q.status.equals('pending'))        await m.createAll();
+
+        ..orderBy([(q) => OrderingTerm(expression: q.nextAttempt)]))
+
+          .get();        await customStatement('PRAGMA foreign_keys = ON');  @override
+
+
+
+  Future<void> updateQueueItemStatus(int id, String status, {DateTime? nextAttempt}) =>      },  List<String> get customConstraints => [
+
+      (update(messageQueue)..where((q) => q.id.equals(id)))
+
+          .write(MessageQueueCompanion(      beforeOpen: (details) async {    'FOREIGN KEY (messageId) REFERENCES messages(messageId) ON DELETE CASCADE',
+
+            status: Value(status),
+
+            nextAttempt: nextAttempt == null ? const Value.absent() : Value(nextAttempt),        await customStatement('PRAGMA foreign_keys = ON');    'CREATE INDEX sync_message_idx ON sync_logs(messageId)',
+
+            attempts: Value(messageQueue.attempts + 1),
+
+          ));      },    'CREATE INDEX sync_timestamp_idx ON sync_logs(timestamp)',
+
+
+
+  // Sync Operations    );  ];
+
+  Future<void> logSync(
+
+      String messageId, String operation, String status, {String? error}) =>  }}
+
+      into(syncLogs).insert(SyncLogsCompanion.insert(
+
+        messageId: messageId,
+
+        operation: operation,
+
+        timestamp: DateTime.now(),  Future<int> createMessage(MessagesCompanion message) => @DriftDatabase(tables: [Messages, QueueItems, SyncLogs])
+
+        status: status,
+
+        error: Value(error),    into(messages).insert(message);class AppDatabase extends _$AppDatabase {
+
+      ));
+
+  AppDatabase() : super(_openConnection());
+
+  // Cleanup Operations
+
+  Future<void> cleanup() async {  Future<Message?> getMessage(String messageId) =>
+
+    final now = DateTime.now();
+
+    await transaction(() async {    (select(messages)..where((m) => m.messageId.equals(messageId)))  @override
+
+      // Delete old delivered messages
+
+      await (delete(messages)        .getSingleOrNull();  int get schemaVersion => 1;
+
+        ..where((m) =>
+
+            m.status.equals('delivered') &
+
+            m.timestamp.isSmallerThanValue(now.subtract(const Duration(days: 7)))))
+
+          .go();  Future<List<Message>> getUnsentMessages() =>  @override
+
+
+
+      // Delete failed queue items after 24 hours    (select(messages)..where((m) => m.status.equals('pending')))  MigrationStrategy get migration {
+
+      await (delete(messageQueue)
+
+        ..where((q) =>        .get();    return MigrationStrategy(
+
+            q.status.equals('failed') &
+
+            q.nextAttempt.isSmallerThanValue(now.subtract(const Duration(hours: 24)))))      onCreate: (m) async {
+
+          .go();
+
   Future<bool> updateMessageStatus(String messageId, String status) async {        await m.createAll();
 
-    final count = await (update(messages)..where((m) => m.messageId.equals(messageId)))        await customStatement('PRAGMA foreign_keys = ON');
+      // Delete old sync logs
 
-        .write(MessagesCompanion(status: Value(status)));      },
+      await (delete(syncLogs)    final count = await (update(messages)..where((m) => m.messageId.equals(messageId)))        await customStatement('PRAGMA foreign_keys = ON');
 
-    return count > 0;      onUpgrade: (m, from, to) async {
+        ..where((s) =>
 
-  }        if (from < 1) {
+            s.timestamp.isSmallerThanValue(now.subtract(const Duration(days: 30)))))        .write(MessagesCompanion(status: Value(status)));      },
 
-          // Add future migrations here
+          .go();
 
-  Future<void> deleteMessage(String messageId) async {        }
+    });    return count > 0;      onUpgrade: (m, from, to) async {
 
-    await (delete(messages)..where((m) => m.messageId.equals(messageId))).go();      },
+  }
 
-  }      beforeOpen: (details) async {
+}  }        if (from < 1) {
+
+
+
+LazyDatabase _openConnection() {          // Add future migrations here
+
+  return LazyDatabase(() async {
+
+    final dbFolder = await getApplicationDocumentsDirectory();  Future<void> deleteMessage(String messageId) async {        }
+
+    final file = File(p.join(dbFolder.path, 'app.db'));
+
+    return NativeDatabase(file);    await (delete(messages)..where((m) => m.messageId.equals(messageId))).go();      },
+
+  });
+
+}  }      beforeOpen: (details) async {
 
         await customStatement('PRAGMA foreign_keys = ON');
 
