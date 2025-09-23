@@ -10,8 +10,8 @@ class BLEService {
 
   BLEService._internal();
 
-  static const String SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
-  static const String CHARACTERISTIC_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
+  static const String serviceUuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+  static const String characteristicUuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
   
   bool _isScanning = false;
   StreamSubscription? _scanSubscription;
@@ -55,9 +55,9 @@ class BLEService {
       _scanSubscription = FlutterBluePlus.scanResults.listen(
         (results) {
           for (ScanResult r in results) {
-            if (!_discoveredDevices.contains(r.device.id.id)) {
-              _discoveredDevices.add(r.device.id.id);
-              debugPrint('${r.device.localName} found! rssi: ${r.rssi}');
+            if (!_discoveredDevices.contains(r.device.remoteId.str)) {
+              _discoveredDevices.add(r.device.remoteId.str);
+              debugPrint('${r.device.platformName} found! rssi: ${r.rssi}');
             }
           }
         },
@@ -93,7 +93,7 @@ class BLEService {
     
     try {
       // Check if already connected
-      if (await device.isConnected) {
+      if (device.isConnected) {
         debugPrint('Device already connected');
         return;
       }
@@ -125,16 +125,17 @@ class BLEService {
           throw UnimplementedError('BLE connection needs license parameter fix');
           // await device.connect(license: FlutterBluePlusLicense.bsd3Clause);
           
-          // Wait for connection confirmation
-          await connectionCompleter.future.timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              throw TimeoutException('Connection state confirmation timeout');
-            },
-          );
-          
-          debugPrint('Successfully connected to ${device.localName}');
-          break;
+          // The following code is commented out due to license parameter issue
+          // // Wait for connection confirmation
+          // await connectionCompleter.future.timeout(
+          //   const Duration(seconds: 5),
+          //   onTimeout: () {
+          //     throw TimeoutException('Connection state confirmation timeout');
+          //   },
+          // );
+          // 
+          // debugPrint('Successfully connected to ${device.platformName}');
+          // break;
         } catch (e) {
           await device.disconnect();
           if (i == 2) {
@@ -145,14 +146,14 @@ class BLEService {
         }
       }
 
-      debugPrint('Connected to ${device.localName}');
+      debugPrint('Connected to ${device.platformName}');
         
       // Discover services
       List<BluetoothService> services = await device.discoverServices();
       for (var service in services) {
-        if (service.uuid.toString() == SERVICE_UUID) {
+        if (service.uuid.toString() == serviceUuid) {
           for (var characteristic in service.characteristics) {
-            if (characteristic.uuid.toString() == CHARACTERISTIC_UUID) {
+            if (characteristic.uuid.toString() == characteristicUuid) {
               // Found our characteristic
               debugPrint('Found target characteristic');
               return;
@@ -175,7 +176,7 @@ class BLEService {
   Future<void> disconnect(BluetoothDevice device) async {
     try {
       await device.disconnect();
-      debugPrint('Disconnected from ${device.localName}');
+      debugPrint('Disconnected from ${device.platformName}');
     } catch (e) {
       debugPrint('Error disconnecting: $e');
       rethrow;

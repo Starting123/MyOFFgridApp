@@ -109,7 +109,7 @@ class HomeScreen extends ConsumerWidget {
                       color: sosActive ? Colors.red : Colors.grey,
                       boxShadow: [
                         BoxShadow(
-                          color: sosActive ? Colors.red.withOpacity(0.3) : Colors.black12,
+                          color: sosActive ? Colors.red.withValues(alpha: 0.3) : Colors.black12,
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),
@@ -134,7 +134,7 @@ class HomeScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
               decoration: BoxDecoration(
-                color: rescuerMode ? Colors.blue.withOpacity(0.1) : null,
+                color: rescuerMode ? Colors.blue.withValues(alpha: 0.1) : null,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(

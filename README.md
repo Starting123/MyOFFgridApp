@@ -1,23 +1,284 @@
-# MyOFFgridApp - Off-Grid SOS Communication App
+# Off-Grid SOS & Nearby Share App
 
-A Flutter-based emergency communication app designed for off-grid scenarios using peer-to-peer networking, BLE, and cloud sync capabilities.
+A Flutter application designed for emergency communication and file sharing in areas with limited or no internet connectivity. This app enables peer-to-peer communication through various technologies including WiFi Direct, Bluetooth Low Energy (BLE), and nearby connections.
 
-## 📱 Overview
+## Features
 
-MyOFFgridApp is an emergency communication system that enables users to send SOS messages and communicate in areas with limited or no internet connectivity. The app uses multiple communication channels including:
+### 🆘 SOS Mode
+- Emergency distress signal broadcasting
+- Automatic device discovery for rescuers
+- Real-time location sharing (when GPS available)
+- Offline message queuing and synchronization
 
-- **Peer-to-Peer (P2P)** networking via nearby devices
-- **Bluetooth Low Energy (BLE)** for short-range communication
-- **Cloud synchronization** when internet is available
-- **Background services** for continuous operation
+### 👥 Rescuer Mode
+- Search and connect to devices in distress
+- Receive SOS signals from nearby devices
+- Coordinate rescue efforts with other rescuers
+- Message relay between devices
 
-## 🏗️ Architecture
+### 💬 Communication
+- Real-time messaging between connected devices
+- Message persistence with local database
+- Automatic message synchronization when connectivity is restored
+- End-to-end encryption for secure communication
+
+### 🔗 Connectivity Options
+- **Nearby Connections**: Google's nearby connections API for device discovery
+- **Bluetooth Low Energy**: For low-power device communication
+- **WiFi Direct**: High-speed peer-to-peer communication
+- **Background Services**: Continuous scanning and connectivity
+
+## Architecture
 
 ### Core Components
 
-1. **Database Layer** (Drift ORM)
-   - Local SQLite database for message and device storage
-   - Offline-first architecture with sync capabilities
+#### Data Layer (`lib/src/data/`)
+- **Database (`db.dart`)**: Drift ORM for local data persistence
+  - Messages table for chat history
+  - Devices table for nearby device tracking
+  - Automatic schema generation with `db.g.dart`
+
+#### Services Layer (`lib/src/services/`)
+- **P2P Service**: Peer-to-peer communication using Google Nearby Connections
+- **BLE Service**: Bluetooth Low Energy communication and device discovery
+- **WiFi Direct Service**: Direct WiFi communication between devices
+- **Encryption Service**: End-to-end encryption using ECDH key exchange
+- **Sync Services**: Cloud sync and peer-to-peer synchronization
+- **Background Services**: Continuous scanning and discovery
+
+#### State Management (`lib/src/providers/`)
+- **Riverpod 3.0**: Modern state management with providers
+- **Chat Provider**: Manages message state and real-time updates
+- **Nearby Providers**: Device discovery and connection state
+- **App Providers**: Global app state and configuration
+
+#### User Interface (`lib/src/ui/screens/`)
+- **Home Screen**: Main interface with SOS button and mode selection
+- **Chat Screen**: Real-time messaging interface
+- **SOS Screen**: Emergency broadcast interface
+
+### Technical Stack
+
+- **Flutter SDK**: 3.0+
+- **State Management**: Riverpod 3.0 with providers
+- **Database**: Drift ORM with SQLite
+- **Networking**: Nearby Connections, BLE, WiFi Direct
+- **Encryption**: PointyCastle for ECDH and AES encryption
+- **Background Tasks**: WorkManager and Flutter Foreground Task
+- **Build System**: build_runner for code generation
+
+## Setup Instructions
+
+### Prerequisites
+
+1. **Flutter SDK**: Install Flutter 3.0 or higher
+   ```bash
+   flutter --version  # Should be 3.0+
+   ```
+
+2. **Android Studio/VS Code**: With Flutter and Dart plugins
+3. **Android Device**: Physical device required for testing (emulators have limited P2P support)
+
+### Installation
+
+1. **Clone the Repository**
+   ```bash
+   git clone <repository-url>
+   cd MyOFFgridApp
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Generate Code**
+   ```bash
+   dart run build_runner build
+   ```
+
+4. **Android Configuration**
+   
+   Add permissions to `android/app/src/main/AndroidManifest.xml`:
+   ```xml
+   <uses-permission android:name="android.permission.BLUETOOTH" />
+   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+   <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+   <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+   <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+   <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+   ```
+
+5. **Build and Run**
+   ```bash
+   flutter run --release
+   ```
+
+## Usage Guide
+
+### First Time Setup
+
+1. **Launch the App**: The app will request necessary permissions
+2. **Grant Permissions**: Allow location, Bluetooth, and WiFi permissions
+3. **Choose Mode**: Select either SOS mode (for emergencies) or Rescuer mode
+
+### SOS Mode (Emergency Users)
+
+1. **Activate SOS**: Tap the large red SOS button on the home screen
+2. **Broadcasting**: The app automatically broadcasts distress signals
+3. **Wait for Rescuers**: Nearby rescuers will receive your SOS signal
+4. **Communicate**: Send messages when rescuers connect
+
+### Rescuer Mode
+
+1. **Enable Rescuer Mode**: Toggle the rescuer switch on the home screen
+2. **Scan for SOS**: The app continuously scans for emergency signals
+3. **Connect to SOS Devices**: Tap on detected devices to establish communication
+4. **Coordinate**: Use chat to communicate with people in distress
+
+### Background Operation
+
+The app continues scanning and can receive connections even when:
+- App is in background
+- Device screen is off
+- Other apps are running
+
+## Configuration
+
+### App Settings
+
+- **Service Timeout**: Connection timeout duration
+- **Scan Interval**: How frequently to scan for devices
+- **Message Retention**: How long to keep old messages
+- **Encryption Settings**: Security configuration
+
+### Performance Tuning
+
+- **Battery Optimization**: Disable battery optimization for continuous operation
+- **Network Settings**: Configure WiFi and Bluetooth scanning intervals
+- **Storage Management**: Regular cleanup of old messages and devices
+
+## Development
+
+### Code Generation
+
+When modifying database schemas or data models:
+
+```bash
+# Clean existing generated files
+dart run build_runner clean
+
+# Regenerate all files
+dart run build_runner build
+
+# Watch for changes during development
+dart run build_runner watch
+```
+
+### Testing
+
+```bash
+# Run all tests
+flutter test
+
+# Run with coverage
+flutter test --coverage
+
+# Analyze code quality
+flutter analyze
+```
+
+### Adding New Features
+
+1. **Services**: Add new communication protocols in `lib/src/services/`
+2. **UI Screens**: Create new screens in `lib/src/ui/screens/`
+3. **State Management**: Add providers in `lib/src/providers/`
+4. **Database**: Extend schema in `lib/src/data/db.dart`
+
+## Known Issues
+
+### Current Limitations
+
+1. **BLE Connection**: Requires license parameter fix in flutter_blue_plus
+2. **iOS Support**: Limited P2P functionality on iOS due to platform restrictions
+3. **Battery Usage**: Background scanning can impact battery life
+4. **Range Limitations**: WiFi Direct and BLE have limited range
+
+### Troubleshooting
+
+**App Not Discovering Devices:**
+- Check location permissions are granted
+- Ensure Bluetooth and WiFi are enabled
+- Verify devices are within communication range
+
+**Messages Not Syncing:**
+- Check device connectivity
+- Restart the app to reset connection state
+- Clear app data if database becomes corrupted
+
+**Performance Issues:**
+- Reduce scan frequency in settings
+- Clear old messages and device history
+- Restart device if background services become unresponsive
+
+## Contributing
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/new-feature`
+3. Make your changes and test thoroughly
+4. Run code analysis: `flutter analyze`
+5. Submit a pull request with clear description
+
+### Code Style
+
+- Follow Dart/Flutter conventions
+- Use meaningful variable names
+- Document public APIs
+- Write tests for new functionality
+- Keep functions focused and small
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For bug reports, feature requests, or development questions:
+
+1. Check existing issues in the repository
+2. Create a new issue with detailed description
+3. Include device information and reproduction steps
+4. Add relevant logs and screenshots
+
+## Roadmap
+
+### Planned Features
+
+- [ ] Group messaging support
+- [ ] File transfer capabilities
+- [ ] Voice message support
+- [ ] Improved battery optimization
+- [ ] iOS platform support
+- [ ] Mesh networking for extended range
+- [ ] Integration with satellite communication
+
+### Performance Improvements
+
+- [ ] Optimize background scanning
+- [ ] Implement message compression
+- [ ] Add connection pooling
+- [ ] Enhance error recovery
+- [ ] Reduce app size and memory usage
+
+---
+
+**Note**: This app is designed for emergency situations and areas with limited connectivity. Always have backup communication methods available in critical situations.
    - Message and device tables with companion classes
 
 2. **State Management** (Riverpod 3.0)

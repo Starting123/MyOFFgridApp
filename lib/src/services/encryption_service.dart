@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
-import 'package:pointycastle/key_derivators/api.dart';
-import 'package:pointycastle/key_derivators/hkdf.dart';
 
 class EncryptionService {
   static final EncryptionService _instance = EncryptionService._internal();
@@ -14,7 +12,7 @@ class EncryptionService {
         Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)))));
 
   // ECDH curve for key exchange
-  static const CURVE = 'secp256r1';
+  static const curve = 'secp256r1';
   
   // Key pairs for ECDH
   late AsymmetricKeyPair<ECPublicKey, ECPrivateKey> _keyPair;
@@ -25,7 +23,7 @@ class EncryptionService {
   }
 
   void _generateKeyPair() {
-    final domainParams = ECDomainParameters(CURVE);
+    final domainParams = ECDomainParameters(curve);
     final keyGen = ECKeyGenerator()
       ..init(ParametersWithRandom(
         ECKeyGeneratorParameters(domainParams),
@@ -59,7 +57,7 @@ class EncryptionService {
       radix: 16
     );
     
-    final domainParams = ECDomainParameters(CURVE);
+    final domainParams = ECDomainParameters(curve);
     final peerPublicKey = ECPublicKey(
       domainParams.curve.createPoint(x, y),
       domainParams,
