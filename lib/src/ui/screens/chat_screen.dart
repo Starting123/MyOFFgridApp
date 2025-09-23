@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/chat_provider.dart';
+import '../../models/message_model.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -51,7 +52,13 @@ class ChatScreenState extends ConsumerState<ChatScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: Text(chatState.currentPeerName ?? 'Chat'),
+        title: Text(
+          chatState.when(
+            data: (state) => state.currentPeerName ?? 'Chat',
+            loading: () => 'Chat',
+            error: (_, __) => 'Chat',
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.warning_amber_rounded),
@@ -60,81 +67,96 @@ class ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              if (chatState.error != null)
-                Container(
-                  color: Colors.red[100],
-                  padding: const EdgeInsets.all(8.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.red),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          chatState.error!,
-                          style: const TextStyle(color: Colors.red),
+      body: chatState.when(
+        data: (state) => Stack(
+          children: [
+            Column(
+              children: [
+                if (state.error != null)
+                  Container(
+                    color: Colors.red[100],
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            state.error!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => ref.read(chatProvider.notifier).clearError(),
-                      ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: chatState.messages.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No messages yet',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      itemCount: chatState.messages.length,
-                      padding: const EdgeInsets.all(8.0),
-                      itemBuilder: (context, index) {
-                        final message = chatState.messages[index];
-                        final isMyMessage = message.senderId == 'current_user_id';
-                        return _buildMessageBubble(message, isMyMessage);
-                      },
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => ref.read(chatProvider.notifier).clearError(),
+                        ),
+                      ],
                     ),
-              ),
-              if (!chatState.isConnected)
-                Container(
-                  color: Colors.orange[100],
-                  padding: const EdgeInsets.all(8.0),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.wifi_off, color: Colors.orange),
-                      SizedBox(width: 8),
-                      Text(
-                        'Not connected to peers',
-                        style: TextStyle(color: Colors.orange),
-                      ),
-                    ],
                   ),
+                Expanded(
+                  child: state.messages.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No messages yet',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        itemCount: state.messages.length,
+                        padding: const EdgeInsets.all(8.0),
+                        itemBuilder: (context, index) {
+                          final message = state.messages[index];
+                          final isMyMessage = message.senderId == 'current_user_id';
+                          return _buildMessageBubble(message, isMyMessage);
+                        },
+                      ),
                 ),
-              _buildMessageInput(),
+                if (!state.isConnected)
+                  Container(
+                    color: Colors.orange[100],
+                    padding: const EdgeInsets.all(8.0),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.wifi_off, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text(
+                          'Not connected to peers',
+                          style: TextStyle(color: Colors.orange),
+                        ),
+                      ],
+                    ),
+                  ),
+                _buildMessageInput(),
+              ],
+            ),
+          ],
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stackTrace) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Error: ${error.toString()}',
+                style: TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(chatProvider),
+                child: Text('Retry'),
+              ),
             ],
           ),
-          if (chatState.isLoading)
-            Container(
-              color: Colors.black26,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildMessageBubble(message, bool isMyMessage) {
+  Widget _buildMessageBubble(MessageModel message, bool isMyMessage) {
     return Align(
       alignment: isMyMessage ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(

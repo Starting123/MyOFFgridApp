@@ -27,7 +27,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.offgrid_sos_app"
-        minSdk = 21  // Required for Nearby Connections API
+        minSdk = 23  // Required for flutter_foreground_task plugin
         targetSdk = flutter.targetSdkVersion
         versionCode = 1
         versionName = "1.0.0"

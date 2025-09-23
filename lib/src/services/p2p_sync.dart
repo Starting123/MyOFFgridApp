@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:nearby_connections/nearby_connections.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -66,7 +65,11 @@ class P2PSync {
         onEndpointFound: (String id, String userName, String serviceId) {
           _onEndpointFound(id, userName);
         },
-        onEndpointLost: _onEndpointLost,
+        onEndpointLost: (String? id) {
+          if (id != null) {
+            _onEndpointLost(id);
+          }
+        },
       );
       
       _discovering = true;
@@ -81,7 +84,7 @@ class P2PSync {
     nearby.acceptConnection(
       id,
       onPayLoadRecieved: onPayLoadRecieved,
-      onPayLoadTransferUpdate: onPayLoadTransferUpdate,
+      onPayloadTransferUpdate: onPayLoadTransferUpdate,
     );
   }
 

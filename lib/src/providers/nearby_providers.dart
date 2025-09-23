@@ -5,19 +5,18 @@ final nearbyServiceProvider = Provider<NearbyService>((ref) {
   return NearbyService.instance;
 });
 
-final sosActiveProvider = StateNotifierProvider<SOSNotifier, bool>((ref) {
-  return SOSNotifier(ref);
+final sosActiveProvider = NotifierProvider<SOSNotifier, bool>(() {
+  return SOSNotifier();
 });
 
-final rescuerModeProvider = StateNotifierProvider<RescuerModeNotifier, bool>((ref) {
-  return RescuerModeNotifier(ref);
+final rescuerModeProvider = NotifierProvider<RescuerModeNotifier, bool>(() {
+  return RescuerModeNotifier();
 });
 
 // State Notifiers
-class SOSNotifier extends StateNotifier<bool> {
-  final Ref ref;
-  
-  SOSNotifier(this.ref) : super(false);
+class SOSNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
 
   Future<void> toggle() async {
     state = !state;
@@ -39,10 +38,9 @@ class SOSNotifier extends StateNotifier<bool> {
   }
 }
 
-class RescuerModeNotifier extends StateNotifier<bool> {
-  final Ref ref;
-  
-  RescuerModeNotifier(this.ref) : super(false);
+class RescuerModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
 
   Future<void> toggle() async {
     state = !state;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/p2p_service.dart';
 
 // Model for nearby devices
 class NearbyDevice {
@@ -12,21 +11,22 @@ class NearbyDevice {
 }
 
 // Providers
-final sosActiveProvider = StateNotifierProvider<SOSNotifier, bool>((ref) {
+final sosActiveProvider = NotifierProvider<SOSNotifier, bool>(() {
   return SOSNotifier();
 });
 
-final rescuerModeProvider = StateNotifierProvider<RescuerModeNotifier, bool>((ref) {
+final rescuerModeProvider = NotifierProvider<RescuerModeNotifier, bool>(() {
   return RescuerModeNotifier();
 });
 
-final nearbyDevicesProvider = StateNotifierProvider<NearbyDevicesNotifier, List<NearbyDevice>>((ref) {
+final nearbyDevicesProvider = NotifierProvider<NearbyDevicesNotifier, List<NearbyDevice>>(() {
   return NearbyDevicesNotifier();
 });
 
 // State Notifiers
-class SOSNotifier extends StateNotifier<bool> {
-  SOSNotifier() : super(false);
+class SOSNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
 
   void toggle() {
     state = !state;
@@ -41,8 +41,9 @@ class SOSNotifier extends StateNotifier<bool> {
   }
 }
 
-class RescuerModeNotifier extends StateNotifier<bool> {
-  RescuerModeNotifier() : super(false);
+class RescuerModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
 
   void toggle() {
     state = !state;
@@ -55,11 +56,12 @@ class RescuerModeNotifier extends StateNotifier<bool> {
   }
 }
 
-class NearbyDevicesNotifier extends StateNotifier<List<NearbyDevice>> {
-  NearbyDevicesNotifier() : super([
-    NearbyDevice(id: '1', name: 'Device 1', isSOS: true),
-    NearbyDevice(id: '2', name: 'Device 2', isSOS: false),
-  ]);
+class NearbyDevicesNotifier extends Notifier<List<NearbyDevice>> {
+  @override
+  List<NearbyDevice> build() => [
+    NearbyDevice(id: '1', name: 'Device 1', type: 'sos'),
+    NearbyDevice(id: '2', name: 'Device 2', type: 'rescuer'),
+  ];
 
   void addDevice(NearbyDevice device) {
     state = [...state, device];
@@ -68,19 +70,6 @@ class NearbyDevicesNotifier extends StateNotifier<List<NearbyDevice>> {
   void removeDevice(String id) {
     state = state.where((device) => device.id != id).toList();
   }
-}
-
-// Models
-class NearbyDevice {
-  final String id;
-  final String name;
-  final bool isSOS;
-
-  NearbyDevice({
-    required this.id,
-    required this.name,
-    required this.isSOS,
-  });
 }
 
 class HomeScreen extends ConsumerWidget {
@@ -189,11 +178,11 @@ class HomeScreen extends ConsumerWidget {
                     child: ListTile(
                       leading: Icon(
                         Icons.phone_android,
-                        color: device.isSOS ? Colors.red : Colors.blue,
+                        color: device.type == 'sos' ? Colors.red : Colors.blue,
                       ),
                       title: Text(device.name),
-                      subtitle: Text(device.isSOS ? 'SOS Active' : 'Online'),
-                      trailing: device.isSOS
+                      subtitle: Text(device.type == 'sos' ? 'SOS Active' : 'Online'),
+                      trailing: device.type == 'sos'
                           ? const Icon(Icons.warning, color: Colors.red)
                           : IconButton(
                               icon: const Icon(Icons.message),

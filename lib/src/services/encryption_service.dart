@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
 import 'package:pointycastle/key_derivators/api.dart';
 import 'package:pointycastle/key_derivators/hkdf.dart';
-import 'package:pointycastle/macs/hmac.dart';
 
 class EncryptionService {
   static final EncryptionService _instance = EncryptionService._internal();

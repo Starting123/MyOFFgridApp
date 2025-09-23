@@ -37,20 +37,18 @@ class AppDatabase extends _$AppDatabase {
   Future<List<Message>> getUnsynedMessages() => 
     (select(messages)..where((m) => m.isSynced.equals(false))).get();
 
-  Future<int> insertMessage(MessagesCompanion message) =>
-    into(messages).insert(message);
-
-  Future<bool> updateMessageSyncStatus(int id, bool synced) =>
-    (update(messages)..where((m) => m.id.equals(id)))
-      .write(MessagesCompanion(isSynced: Value(synced)));
+  Future<int> insertMessage(MessageCompanion message) =>
+      into(messages).insert(message);  Future<bool> updateMessageSyncStatus(int id, bool synced) async {
+    final result = await (update(messages)..where((m) => m.id.equals(id)))
+      .write(MessageCompanion(isSynced: Value(synced)));
+    return result > 0;
+  }
 
   // Device operations
   Future<List<Device>> getAllDevices() => select(devices).get();
 
-  Future<int> upsertDevice(DevicesCompanion device) =>
-    into(devices).insertOnConflictUpdate(device);
-
-  Future<int> removeOldDevices(DateTime cutoff) =>
+  Future<int> upsertDevice(DeviceCompanion device) =>
+      into(devices).insertOnConflictUpdate(device);  Future<int> removeOldDevices(DateTime cutoff) =>
     (delete(devices)..where((d) => d.lastSeen.isSmallerThanValue(cutoff))).go();
 }
 

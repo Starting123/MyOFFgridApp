@@ -26,9 +26,6 @@ class P2PService {
   bool _isDiscovering = false;
   bool _isAdvertising = false;
 
-  // Constants
-  static const Duration _batchWindow = Duration(milliseconds: 100);
-
   // Stream getters
   Stream<String> get onPeerFound => _onPeerFoundController.stream;
   Stream<String> get onPeerLost => _onPeerLostController.stream;
@@ -70,8 +67,10 @@ class P2PService {
           _onPeerFoundController.add(endpointId);
         },
         onEndpointLost: (endpointId) {
-          _onPeerLostController.add(endpointId);
-          _connectedPeers.remove(endpointId);
+          if (endpointId != null) {
+            _onPeerLostController.add(endpointId);
+            _connectedPeers.remove(endpointId);
+          }
         },
         serviceId: "com.example.offgrid_sos",
       );
@@ -116,7 +115,7 @@ class P2PService {
     try {
       await _nearbyService.acceptConnection(
         endpointId,
-        onPayLoadReceived: (endpointId, payload) {
+        onPayLoadRecieved: (endpointId, payload) {
           _handlePayload(endpointId, payload);
         },
         onPayloadTransferUpdate: (endpointId, update) {

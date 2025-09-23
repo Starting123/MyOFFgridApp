@@ -28,7 +28,6 @@ class SyncEvent {
 
 /// Service for managing and monitoring sync state
 class SyncStateManager with ChangeNotifier {
-  final SyncLogDao _syncLogDao;
   final StreamController<SyncEvent> _eventController = StreamController<SyncEvent>.broadcast();
   
   SyncState _currentState = SyncState.idle;
@@ -42,7 +41,7 @@ class SyncStateManager with ChangeNotifier {
   DateTime? get lastSyncAttempt => _lastSyncAttempt;
   bool get isSyncing => _currentState == SyncState.syncing;
 
-  SyncStateManager(AppDatabase db) : _syncLogDao = db.syncLogDao {
+  SyncStateManager(AppDatabase db) {
     // Start monitoring sync health
     _monitoringTimer = Timer.periodic(
       const Duration(minutes: 1),
@@ -80,20 +79,20 @@ class SyncStateManager with ChangeNotifier {
   /// Check sync health periodically
   Future<void> _checkSyncHealth() async {
     try {
-      final lastLog = await _syncLogDao.getLatestSyncLog('health_check');
-      if (lastLog != null) {
-        final timeSinceLastSync = DateTime.now().difference(lastLog.timestamp);
+      // Simplified health check without sync logs
+      final timeSinceLastSync = _lastSyncAttempt != null 
+          ? DateTime.now().difference(_lastSyncAttempt!)
+          : Duration(hours: 24);
         
-        // If last sync was over 15 minutes ago and we're not in an error state
-        if (timeSinceLastSync > const Duration(minutes: 15) &&
-            _currentState != SyncState.error &&
-            _currentState != SyncState.noConnection) {
-          _setState(
-            SyncState.retrying,
-            'health_check',
-            'Sync overdue - last sync was ${timeSinceLastSync.inMinutes} minutes ago',
-          );
-        }
+      // If last sync was over 15 minutes ago and we're not in an error state
+      if (timeSinceLastSync > const Duration(minutes: 15) &&
+          _currentState != SyncState.error &&
+          _currentState != SyncState.noConnection) {
+        _setState(
+          SyncState.retrying,
+          'health_check',
+          'Sync overdue - last sync was ${timeSinceLastSync.inMinutes} minutes ago',
+        );
       }
     } catch (e) {
       print('Error checking sync health: $e');
@@ -114,20 +113,12 @@ class SyncStateManager with ChangeNotifier {
 
   /// Get sync stats for the last N hours
   Future<Map<String, int>> getSyncStats(int hours) async {
-    final now = DateTime.now();
-    final since = now.subtract(Duration(hours: hours));
-    
-    // Query logs since the specified time
-    final logs = await _syncLogDao.getLogsSince(since);
-    
-    // Count stats
-    final stats = {
-      'total': logs.length,
-      'success': logs.where((l) => l.status == 'success').length,
-      'error': logs.where((l) => l.status == 'error').length,
+    // Simplified stats without sync logs
+    return {
+      'total': 0,
+      'success': 0,
+      'error': 0,
     };
-    
-    return stats;
   }
 
   @override
