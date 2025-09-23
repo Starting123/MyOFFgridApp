@@ -1,3 +1,18 @@
+buildscript {
+    extra.apply {
+        set("kotlin_version", "1.9.10")  // Updated Kotlin version
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        val kotlinVersion = rootProject.extra.get("kotlin_version") as String
+        classpath("com.android.tools.build:gradle:8.1.1")  // Updated Gradle plugin version
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+    }
+}
+
 allprojects {
     repositories {
         google()

@@ -1,21 +1,15 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/message_model.dart';
-import '../../services/p2p_service.dart';
-
-// Providers
-final messagesProvider = StateProvider<List<MessageModel>>((ref) => []);
-
+import '../../providers/chat_provider.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+  ChatScreenState createState() => ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -26,183 +20,180 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
-  void _sendMessage() {
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
-
-    final message = MessageModel(
-      id: DateTime.now().toIso8601String(),
-      from: 'user_id', // TODO: Replace with actual user ID
-      to: 'peer_id', // TODO: Replace with target peer ID
-      content: _messageController.text,
-      contentType: 'text',
-      createdAt: DateTime.now(),
-      sent: false,
-    );
-
-    // Add message to local state
-    ref.read(messagesProvider.notifier).addMessage(message);
-
-    // Clear input
+    await ref.read(chatProvider.notifier).sendMessage(_messageController.text);
     _messageController.clear();
+    _scrollToBottom();
+  }
 
-    // Scroll to bottom
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent + 100,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
+  Future<void> _sendSOSMessage() async {
+    await ref.read(chatProvider.notifier).sendMessage(
+      'SOS! Emergency assistance needed!',
+      isSOS: true,
     );
-
-    // Send via P2P service
-    P2PService.instance.broadcast({
-      'type': 'message',
-      'data': message.toMap(),
-    });
+    _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
-    final messages = ref.watch(messagesProvider);
-
+    final chatState = ref.watch(chatProvider);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat'),
+        title: Text(chatState.currentPeerName ?? 'Chat'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              // TODO: Show connection status, peer info, etc.
-            },
+            icon: const Icon(Icons.warning_amber_rounded),
+            color: Colors.red,
+            onPressed: _sendSOSMessage,
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Messages List
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(8.0),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final isFromMe = message.fromId == 'user_id';
-
-                return Align(
-                  alignment: isFromMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0),
-                    padding: const EdgeInsets.all(12.0),
-                    decoration: BoxDecoration(
-                      color: isFromMe ? Colors.blue : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          message.body,
-                          style: TextStyle(
-                            color: isFromMe ? Colors.white : Colors.black,
-                          ),
+          Column(
+            children: [
+              if (chatState.error != null)
+                Container(
+                  color: Colors.red[100],
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          chatState.error!,
+                          style: const TextStyle(color: Colors.red),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              message.timestamp.toLocal().toString().substring(11, 16),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isFromMe ? Colors.white70 : Colors.black54,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            _buildStatusIcon(message.status),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => ref.read(chatProvider.notifier).clearError(),
+                      ),
+                    ],
                   ),
-                );
-              },
+                ),
+              Expanded(
+                child: chatState.messages.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No messages yet',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      itemCount: chatState.messages.length,
+                      padding: const EdgeInsets.all(8.0),
+                      itemBuilder: (context, index) {
+                        final message = chatState.messages[index];
+                        final isMyMessage = message.senderId == 'current_user_id';
+                        return _buildMessageBubble(message, isMyMessage);
+                      },
+                    ),
+              ),
+              if (!chatState.isConnected)
+                Container(
+                  color: Colors.orange[100],
+                  padding: const EdgeInsets.all(8.0),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.wifi_off, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text(
+                        'Not connected to peers',
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                    ],
+                  ),
+                ),
+              _buildMessageInput(),
+            ],
+          ),
+          if (chatState.isLoading)
+            Container(
+              color: Colors.black26,
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(message, bool isMyMessage) {
+    return Align(
+      alignment: isMyMessage ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          color: message.isSOS ? Colors.red :
+                 (isMyMessage ? Colors.blue[100] : Colors.grey[300]),
+          borderRadius: BorderRadius.circular(15.0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.content,
+              style: TextStyle(
+                color: message.isSOS ? Colors.white : Colors.black87,
+              ),
+            ),
+            Text(
+              _formatTime(message.timestamp),
+              style: TextStyle(
+                fontSize: 12.0,
+                color: message.isSOS ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: InputDecoration(
+                hintText: 'Type a message...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+              ),
+              onSubmitted: (_) => _sendMessage(),
             ),
           ),
-
-          // Input Area
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 1,
-                  offset: const Offset(0, -1),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.add_photo_alternate),
-                  onPressed: () {
-                    // TODO: Implement image picker
-                  },
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Type a message',
-                      border: InputBorder.none,
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
+          IconButton(
+            icon: const Icon(Icons.send),
+            onPressed: _sendMessage,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusIcon(String status) {
-    IconData icon;
-    Color color;
-
-    switch (status) {
-      case 'pending':
-        icon = Icons.access_time;
-        color = Colors.grey;
-        break;
-      case 'sent':
-        icon = Icons.check;
-        color = Colors.blue;
-        break;
-      case 'delivered':
-        icon = Icons.done_all;
-        color = Colors.blue;
-        break;
-      case 'synced':
-        icon = Icons.cloud_done;
-        color = Colors.green;
-        break;
-      default:
-        icon = Icons.error_outline;
-        color = Colors.red;
-    }
-
-    return Icon(
-      icon,
-      size: 16,
-      color: color,
-    );
+  String _formatTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 }

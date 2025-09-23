@@ -1,5 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/p2p_service.dart';
+
+// Model for nearby devices
+class NearbyDevice {
+  final String id;
+  final String name;
+  final String type; // 'sos' or 'rescuer'
+
+  NearbyDevice({required this.id, required this.name, required this.type});
+}
 
 // Providers
 final sosActiveProvider = StateNotifierProvider<SOSNotifier, bool>((ref) {
