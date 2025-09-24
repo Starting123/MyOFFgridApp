@@ -5,7 +5,7 @@ import 'src/ui/screens/home_screen.dart';
 import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/sos_screen.dart';
 import 'src/ui/screens/user_settings_screen.dart';
-import 'src/ui/screens/device_list_screen.dart';
+import 'src/ui/screens/real_device_list_screen.dart';
 import 'src/utils/background_service_manager.dart';
 
 void main() async {
@@ -60,7 +60,7 @@ class OffGridSOSApp extends StatelessWidget {
           '/chat': (context) => const ChatScreen(),
           '/sos': (context) => const SOSScreen(),
           '/settings': (context) => const UserSettingsScreen(),
-          '/devices': (context) => const DeviceListScreen(),
+          '/devices': (context) => const RealDeviceListScreen(),
         },
       ),
     );
