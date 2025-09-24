@@ -24,6 +24,13 @@ dependencies:
   pointycastle: ^3.7.3
   flutter_blue_plus: ^2.0.0
   
+  # Location and Media
+  geolocator: ^12.0.0
+  geocoding: ^3.0.0
+  image_picker: ^1.1.2
+  file_picker: ^8.0.6
+  mime: ^1.0.5
+  
   # Background Tasks
   workmanager: ^0.5.1
   flutter_foreground_task: ^6.0.0+1
