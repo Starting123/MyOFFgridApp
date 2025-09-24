@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../data/db.dart';
 import '../utils/constants.dart';
 
@@ -22,7 +23,7 @@ class CloudSync {
         await _syncMessageToCloud(message);
       }
     } catch (e) {
-      print('Error pushing messages: $e');
+      debugPrint('Error pushing messages: $e');
     }
   }
 
@@ -41,7 +42,7 @@ class CloudSync {
         }
       }
     } catch (e) {
-      print('Error pulling messages: $e');
+      debugPrint('Error pulling messages: $e');
     }
   }
 
@@ -68,7 +69,7 @@ class CloudSync {
         await db.updateMessageSyncStatus(message.id, true);
       }
     } catch (e) {
-      print('Error syncing message ${message.id}: $e');
+      debugPrint('Error syncing message ${message.id}: $e');
     }
   }
 
@@ -89,7 +90,7 @@ class CloudSync {
         isSynced: const Value(true),
       ));
     } catch (e) {
-      print('Error saving message from cloud: $e');
+      debugPrint('Error saving message from cloud: $e');
     }
   }
 

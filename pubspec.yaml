@@ -32,7 +32,6 @@ dependencies:
   mime: ^1.0.5
   
   # Background Tasks
-  workmanager: ^0.5.1
   flutter_foreground_task: ^6.0.0+1
   
   # Code Generation

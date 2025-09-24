@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:nearby_connections/nearby_connections.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../data/models/message_model.dart';
@@ -48,7 +48,7 @@ class P2PSync {
       _advertising = true;
       return true;
     } catch (e) {
-      print('Error starting advertising: $e');
+      debugPrint('Error starting advertising: $e');
       return false;
     }
   }
@@ -75,7 +75,7 @@ class P2PSync {
       _discovering = true;
       return true;
     } catch (e) {
-      print('Error starting discovery: $e');
+      debugPrint('Error starting discovery: $e');
       return false;
     }
   }
@@ -159,7 +159,7 @@ class P2PSync {
       await nearby.sendBytesPayload(endpointId, bytes);
       return true;
     } catch (e) {
-      print('Error sending message: $e');
+      debugPrint('Error sending message: $e');
       return false;
     }
   }

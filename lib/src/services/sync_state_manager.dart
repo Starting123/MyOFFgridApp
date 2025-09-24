@@ -95,7 +95,7 @@ class SyncStateManager with ChangeNotifier {
         );
       }
     } catch (e) {
-      print('Error checking sync health: $e');
+      debugPrint('Error checking sync health: $e');
     }
   }
 

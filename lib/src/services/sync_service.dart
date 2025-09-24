@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import '../data/db.dart';
 import 'cloud_sync.dart';
 
@@ -18,7 +19,7 @@ class SyncService {
     try {
       await db.updateMessageSyncStatus(messageId, false);
     } catch (e) {
-      print('Error queuing message: $e');
+      debugPrint('Error queuing message: $e');
     }
   }
 
@@ -30,7 +31,7 @@ class SyncService {
     try {
       await _cloudSync.sync();
     } catch (e) {
-      print('Sync error: $e');
+      debugPrint('Sync error: $e');
     } finally {
       _processing = false;
     }
@@ -42,7 +43,7 @@ class SyncService {
       await _cloudSync.pushMessages();
       return true;
     } catch (e) {
-      print('Force push error: $e');
+      debugPrint('Force push error: $e');
       return false;
     }
   }
@@ -53,7 +54,7 @@ class SyncService {
       await _cloudSync.pullMessages();
       return true;
     } catch (e) {
-      print('Force pull error: $e');
+      debugPrint('Force pull error: $e');
       return false;
     }
   }
