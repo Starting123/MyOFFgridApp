@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/ui/screens/home_screen.dart';
 import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/sos_screen.dart';
+import 'src/ui/screens/user_settings_screen.dart';
+import 'src/ui/screens/device_list_screen.dart';
 import 'src/utils/background_service_manager.dart';
 
 void main() async {
@@ -57,6 +59,8 @@ class OffGridSOSApp extends StatelessWidget {
           '/home': (context) => const HomeScreen(),
           '/chat': (context) => const ChatScreen(),
           '/sos': (context) => const SOSScreen(),
+          '/settings': (context) => const UserSettingsScreen(),
+          '/devices': (context) => const DeviceListScreen(),
         },
       ),
     );

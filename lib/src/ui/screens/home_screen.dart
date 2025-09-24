@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'user_settings_screen.dart';
+import 'device_list_screen.dart';
 
 // Model for nearby devices
 class NearbyDevice {
@@ -9,6 +12,16 @@ class NearbyDevice {
 
   NearbyDevice({required this.id, required this.name, required this.type});
 }
+
+// User info provider
+final userInfoProvider = FutureProvider<Map<String, String>>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return {
+    'name': prefs.getString('user_name') ?? 'ไม่ได้ระบุชื่อ',
+    'phone': prefs.getString('user_phone') ?? '',
+    'deviceType': prefs.getString('device_type') ?? 'SOS',
+  };
+});
 
 // Providers
 final sosActiveProvider = NotifierProvider<SOSNotifier, bool>(() {
@@ -67,8 +80,12 @@ class NearbyDevicesNotifier extends Notifier<List<NearbyDevice>> {
     state = [...state, device];
   }
 
-  void removeDevice(String id) {
-    state = state.where((device) => device.id != id).toList();
+  void removeDevice(String deviceId) {
+    state = state.where((device) => device.id != deviceId).toList();
+  }
+
+  void clear() {
+    state = [];
   }
 }
 
@@ -80,14 +97,46 @@ class HomeScreen extends ConsumerWidget {
     final sosActive = ref.watch(sosActiveProvider);
     final rescuerMode = ref.watch(rescuerModeProvider);
     final nearbyDevices = ref.watch(nearbyDevicesProvider);
+    final userInfoAsync = ref.watch(userInfoProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Off-Grid SOS'),
+        title: userInfoAsync.when(
+          data: (userInfo) => Text('สวัสดี ${userInfo['name']}'),
+          loading: () => const Text('Off-Grid SOS'),
+          error: (_, __) => const Text('Off-Grid SOS'),
+        ),
+        backgroundColor: sosActive ? Colors.red : Colors.blue,
+        foregroundColor: Colors.white,
         actions: [
+          // Device List Button
           IconButton(
-            icon: const Icon(Icons.message),
-            onPressed: () => Navigator.pushNamed(context, '/chat'),
+            icon: const Icon(Icons.devices),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DeviceListScreen(),
+                ),
+              );
+            },
+            tooltip: 'อุปกรณ์ใกล้เคียง',
+          ),
+          // Settings Button  
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const UserSettingsScreen(),
+                ),
+              ).then((_) {
+                // Refresh user info after returning from settings
+                ref.invalidate(userInfoProvider);
+              });
+            },
+            tooltip: 'ตั้งค่า',
           ),
         ],
       ),
@@ -95,6 +144,69 @@ class HomeScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // User Status Card
+            userInfoAsync.when(
+              data: (userInfo) => Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: _getDeviceTypeColor(userInfo['deviceType']!),
+                        child: Icon(
+                          _getDeviceTypeIcon(userInfo['deviceType']!),
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              userInfo['name']!,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              '${userInfo['deviceType']} - ${userInfo['phone']}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: sosActive ? Colors.red : Colors.green,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          sosActive ? '🆘 SOS' : '✅ ปกติ',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+
             // SOS Button
             Expanded(
               flex: 2,
@@ -115,14 +227,32 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Text(
-                        'SOS',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            sosActive ? '🆘' : '🛡️',
+                            style: const TextStyle(fontSize: 32),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            sosActive ? 'SOS' : 'SAFE',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (sosActive)
+                            const Text(
+                              'แตะเพื่อหยุด',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -133,15 +263,25 @@ class HomeScreen extends ConsumerWidget {
             // Rescuer Mode Switch
             Container(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
+              margin: const EdgeInsets.symmetric(vertical: 8.0),
               decoration: BoxDecoration(
-                color: rescuerMode ? Colors.blue.withValues(alpha: 0.1) : null,
-                borderRadius: BorderRadius.circular(8),
+                color: rescuerMode ? Colors.blue.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: rescuerMode ? Colors.blue : Colors.grey,
+                  width: 1,
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Icon(
+                    Icons.local_hospital,
+                    color: rescuerMode ? Colors.blue : Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
                   const Text(
-                    'Rescuer Mode',
+                    'โหมดผู้ช่วยเหลือ',
                     style: TextStyle(fontSize: 16),
                   ),
                   const SizedBox(width: 16),
@@ -154,54 +294,112 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
 
+            // Quick Actions
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DeviceListScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.devices),
+                    label: const Text('อุปกรณ์ใกล้เคียง'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('เปิดแผนที่...')),
+                      );
+                    },
+                    icon: const Icon(Icons.map),
+                    label: const Text('แผนที่'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
             const SizedBox(height: 16),
 
-            // Nearby Devices List
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Nearby Devices',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+            // Nearby Devices Summary
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
               ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              flex: 3,
-              child: ListView.builder(
-                itemCount: nearbyDevices.length,
-                itemBuilder: (context, index) {
-                  final device = nearbyDevices[index];
-                  return Card(
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.phone_android,
-                        color: device.type == 'sos' ? Colors.red : Colors.blue,
-                      ),
-                      title: Text(device.name),
-                      subtitle: Text(device.type == 'sos' ? 'SOS Active' : 'Online'),
-                      trailing: device.type == 'sos'
-                          ? const Icon(Icons.warning, color: Colors.red)
-                          : IconButton(
-                              icon: const Icon(Icons.message),
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/chat',
-                                  arguments: device,
-                                );
-                              },
-                            ),
+              child: Row(
+                children: [
+                  Icon(Icons.signal_cellular_4_bar, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'พบอุปกรณ์ ${nearbyDevices.length} เครื่อง',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
                     ),
-                  );
-                },
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DeviceListScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('ดูทั้งหมด'),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Color _getDeviceTypeColor(String deviceType) {
+    switch (deviceType) {
+      case 'SOS':
+        return Colors.red.shade600;
+      case 'Rescuer':
+        return Colors.blue.shade600;
+      case 'Relay':
+        return Colors.green.shade600;
+      default:
+        return Colors.grey.shade600;
+    }
+  }
+
+  IconData _getDeviceTypeIcon(String deviceType) {
+    switch (deviceType) {
+      case 'SOS':
+        return Icons.emergency;
+      case 'Rescuer':
+        return Icons.local_hospital;
+      case 'Relay':
+        return Icons.router;
+      default:
+        return Icons.device_unknown;
+    }
   }
 }
