@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/real_device_providers.dart';
+import '../../utils/debug_helper.dart';
 
 class RealDeviceListScreen extends ConsumerStatefulWidget {
   const RealDeviceListScreen({super.key});
@@ -19,10 +20,19 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
   }
 
   void _startScanning() async {
+    debugPrint('🔍 เริ่มสแกนอุปกรณ์จาก UI...');
     setState(() => _isScanning = true);
     
     final devicesNotifier = ref.read(realNearbyDevicesProvider.notifier);
     await devicesNotifier.startScanning();
+    
+    // Show scanning message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🔍 กำลังสแกนหาอุปกรณ์... (30 วินาที)'),
+        duration: Duration(seconds: 3),
+      ),
+    );
     
     // Auto-stop scanning after 30 seconds to save battery
     Future.delayed(const Duration(seconds: 30), () {
@@ -39,6 +49,54 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
     
     final devicesNotifier = ref.read(realNearbyDevicesProvider.notifier);
     await devicesNotifier.stopScanning();
+  }
+
+  void _showDebugInfo() async {
+    debugPrint('🔧 ตรวจสอบ Debug Info...');
+    
+    // Check permissions
+    await DeviceDiscoveryDebugger.checkAllPermissions();
+    
+    // Check device capabilities
+    DeviceDiscoveryDebugger.checkDeviceCapabilities();
+    
+    // Log troubleshooting steps
+    DeviceDiscoveryDebugger.logTroubleshootingSteps();
+    DeviceDiscoveryDebugger.logExpectedBehavior();
+    
+    // Show dialog with debug info
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🔧 Debug Information'),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('ตรวจสอบ Debug Console สำหรับข้อมูลรายละเอียด'),
+              SizedBox(height: 16),
+              Text('การแก้ปัญหา:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('1. ตรวจสอบ Permissions ทั้งหมด'),
+              Text('2. เปิด Bluetooth และ Location'),
+              Text('3. อยู่ในระยะ 1-10 เมตร'),
+              Text('4. ปิด WiFi/Mobile Data (ทดสอบ)'),
+              Text('5. Restart แอปทั้งสองเครื่อง'),
+              SizedBox(height: 16),
+              Text('ดูรายละเอียดใน TROUBLESHOOTING.md'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ปิด'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDeviceCard(RealNearbyDevice device) {
@@ -390,6 +448,11 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () => _showDebugInfo(),
+            tooltip: 'Debug Info',
+          ),
+          IconButton(
             icon: Icon(_isScanning ? Icons.stop : Icons.refresh),
             onPressed: _isScanning ? _stopScanning : _startScanning,
           ),
@@ -496,14 +559,24 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
                               foregroundColor: Colors.blue.shade600,
                             ),
                           ),
-                        ] else ...[
                           const SizedBox(height: 16),
                           Text(
-                            'เคล็ดลับ:\n• ตรวจสอบว่าเปิด Bluetooth และ WiFi แล้ว\n• ให้อุปกรณ์อื่นเปิดแอปนี้ด้วย\n• อยู่ในระยะ 100 เมตร',
+                            'การแก้ปัญหา:\n• ตรวจสอบ Permissions (Location, Bluetooth)\n• เปิด Bluetooth และ WiFi\n• อยู่ในระยะ 1-10 เมตร\n• เครื่องอื่น เปิด SOS/Rescuer Mode\n• ดู Debug logs (กด ⚡ ด้านบน)',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade500,
+                              color: Colors.orange.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            'กำลังสแกน:\n• WiFi Direct และ Bluetooth LE\n• ใช้เวลา 10-30 วินาที\n• ตรวจสอบ Debug Console สำหรับรายละเอียด',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade600,
                             ),
                           ),
                         ],

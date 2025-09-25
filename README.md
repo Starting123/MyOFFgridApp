@@ -211,19 +211,24 @@ flutter analyze
 ### Troubleshooting
 
 **App Not Discovering Devices:**
-- Check location permissions are granted
+- Check location permissions are granted (Location: "Allow all the time")
 - Ensure Bluetooth and WiFi are enabled
-- Verify devices are within communication range
+- Verify devices are within communication range (1-10 meters for testing)
+- Grant all required permissions: Bluetooth Scan, Bluetooth Advertise, Nearby WiFi Devices
+- Try restarting both devices and clearing app data
+- See detailed troubleshooting in `TROUBLESHOOTING.md`
 
 **Messages Not Syncing:**
-- Check device connectivity
+- Check device connectivity and logs
 - Restart the app to reset connection state
 - Clear app data if database becomes corrupted
+- Ensure both devices have SOS/Rescuer mode active
 
 **Performance Issues:**
 - Reduce scan frequency in settings
 - Clear old messages and device history
 - Restart device if background services become unresponsive
+- Close other apps that might use Bluetooth/WiFi
 
 ## Contributing
 

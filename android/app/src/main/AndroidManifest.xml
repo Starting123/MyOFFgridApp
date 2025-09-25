@@ -9,12 +9,23 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     
-    <!-- Location permissions (required for BLE scanning on Android < 12) -->
+    <!-- Location permissions (required for BLE scanning and WiFi Direct) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     
-    <!-- Foreground service permission (required for long-running BLE operations) -->
+    <!-- WiFi Direct permissions -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Nearby Connections requires these -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
+    <!-- Foreground service permission (required for long-running operations) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     
     <!-- Feature requirements -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
@@ -30,6 +41,11 @@
             android:name=".BluetoothForegroundService"
             android:foregroundServiceType="location|connectedDevice"
             android:exported="false" />
+            
+        <!-- Add network security config -->
+        <meta-data
+            android:name="android.security.net.config"
+            android:resource="@xml/network_security_config" />
             
         <activity
             android:name=".MainActivity"

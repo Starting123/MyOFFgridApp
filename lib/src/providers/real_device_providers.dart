@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import '../services/p2p_service.dart';
 import '../services/nearby_service.dart';
 import '../data/db.dart';
+import '../utils/debug_helper.dart';
 
 // Real device model
 class RealNearbyDevice {
@@ -115,13 +116,25 @@ class RealSOSNotifier extends Notifier<bool> {
     
     if (!state) {
       // Activate SOS
+      debugPrint('🆘 เปิด SOS Mode...');
       state = true;
       
       // Initialize services if needed
-      await _p2pService?.initialize();
-      await _nearbyService?.initialize();
+      debugPrint('🔄 เริ่มต้น services...');
+      final p2pInit = await _p2pService?.initialize() ?? false;
+      final nearbyInit = await _nearbyService?.initialize() ?? false;
+      
+      debugPrint('P2P Service: ${p2pInit ? "✅" : "❌"}');
+      debugPrint('Nearby Service: ${nearbyInit ? "✅" : "❌"}');
+      
+      if (!p2pInit && !nearbyInit) {
+        debugPrint('❌ ไม่สามารถเริ่มต้น services ได้');
+        state = false;
+        return;
+      }
       
       // Start advertising as SOS device
+      debugPrint('📡 เริ่ม advertising...');
       await _p2pService?.startAdvertising(deviceName);
       await _nearbyService?.startAdvertising('SOS_$deviceName');
       
@@ -187,11 +200,28 @@ class RealRescuerModeNotifier extends Notifier<bool> {
     
     state = !state;
     
-    await _p2pService?.initialize();
-    await _nearbyService?.initialize();
-    
     if (state) {
+      debugPrint('👨‍⚕️ เปิด Rescuer Mode...');
+      
+      // Check permissions first
+      await DeviceDiscoveryDebugger.checkAllPermissions();
+      
+      // Initialize services
+      debugPrint('🔄 เริ่มต้น services...');
+      final p2pInit = await _p2pService?.initialize() ?? false;
+      final nearbyInit = await _nearbyService?.initialize() ?? false;
+      
+      debugPrint('P2P Service: ${p2pInit ? "✅" : "❌"}');
+      debugPrint('Nearby Service: ${nearbyInit ? "✅" : "❌"}');
+      
+      if (!p2pInit && !nearbyInit) {
+        debugPrint('❌ ไม่สามารถเริ่มต้น services ได้');
+        state = false;
+        return;
+      }
+      
       // Start rescuer mode - begin scanning for SOS signals
+      debugPrint('🔍 เริ่มสแกนหา SOS signals...');
       await _p2pService?.startDiscovery();
       await _nearbyService?.startDiscovery();
       await _p2pService?.startAdvertising('Rescuer_$deviceName');
