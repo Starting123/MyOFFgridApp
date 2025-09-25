@@ -1,52 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/app_theme.dart';
-import 'modern_home_screen.dart';
-import 'modern_sos_screen.dart';
-import 'modern_chat_screen.dart';
-import 'modern_devices_screen.dart';
-import 'modern_settings_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ModernMainNavigation extends StatefulWidget {
+// Import all the new screens
+import 'home_screen.dart';
+import 'sos_screen.dart';
+import 'modern_chat_screen.dart';
+import 'nearby_devices_screen.dart';
+import 'settings_screen.dart';
+
+/// Main navigation with bottom tab bar for all screens
+class ModernMainNavigation extends ConsumerStatefulWidget {
   const ModernMainNavigation({super.key});
 
   @override
-  State<ModernMainNavigation> createState() => _ModernMainNavigationState();
+  ConsumerState<ModernMainNavigation> createState() => _ModernMainNavigationState();
 }
 
-class _ModernMainNavigationState extends State<ModernMainNavigation> with TickerProviderStateMixin {
+class _ModernMainNavigationState extends ConsumerState<ModernMainNavigation> 
+    with TickerProviderStateMixin {
   int _currentIndex = 0;
   late PageController _pageController;
   late AnimationController _fabAnimationController;
-  late Animation<double> _fabAnimation;
+  late Animation<double> _fabScaleAnimation;
 
-  final List<Widget> _screens = [
-    const ModernHomeScreen(),
-    const ModernSOSScreen(),
-    const ModernChatScreen(),
-    const ModernDevicesScreen(),
-    const ModernSettingsScreen(),
+  // Screen list with all new modern screens
+  final List<Widget> _screens = const [
+    HomeScreen(),
+    SOSScreen(),
+    ModernChatScreen(chatId: 'main-chat', chatName: 'Main Chat'),
+    NearbyDevicesScreen(),
+    SettingsScreen(),
   ];
 
-  final List<NavItem> _navItems = [
-    NavItem(
-      icon: Icons.home_rounded,
-      activeIcon: Icons.home_rounded,
+  // Navigation items configuration
+  final List<NavigationItem> _navigationItems = [
+    NavigationItem(
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home,
       label: 'Home',
-      color: Color(0xFF00D4FF),
+      color: Colors.blue,
     ),
-    NavItem(
-      icon: Icons.warning_outlined,
-      activeIcon: Icons.warning_rounded,
+    NavigationItem(
+      icon: Icons.emergency_outlined,
+      activeIcon: Icons.emergency,
       label: 'SOS',
-      color: Color(0xFFFF6B6B),
+      color: Colors.red,
     ),
-    NavItem(
-      icon: Icons.chat_bubble_outline_rounded,
-      activeIcon: Icons.chat_bubble_rounded,
+    NavigationItem(
+      icon: Icons.chat_bubble_outline,
+      activeIcon: Icons.chat_bubble,
       label: 'Chat',
-      color: Color(0xFF4CAF50),
+      color: Colors.green,
     ),
+    NavigationItem(
+      icon: Icons.devices_outlined,
+      activeIcon: Icons.devices,
+      label: 'Devices',
+      color: Colors.purple,
+    ),
+    NavigationItem(
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings,
+      label: 'Settings',
+      color: Colors.orange,
+    ),
+  ];
     NavItem(
       icon: Icons.devices_other_outlined,
       activeIcon: Icons.devices_other_rounded,
