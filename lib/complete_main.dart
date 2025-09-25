@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'src/ui/screens/home_screen.dart';
+import 'src/ui/screens/improved_home_screen.dart';
 import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/enhanced_sos_screen.dart';
 import 'src/ui/screens/user_settings_screen.dart';
@@ -27,9 +27,29 @@ void main() async {
 
 /// Request all necessary permissions for the app
 Future<void> _requestPermissions() async {
-  final permissions = [
-    Permission.location,
+  // Critical permissions for Nearby Connections
+  final criticalPermissions = [
+    Permission.location, // This covers ACCESS_COARSE_LOCATION
     Permission.locationWhenInUse,
+    Permission.locationAlways,
+  ];
+  
+  // Request critical permissions first and ensure they're granted
+  for (final permission in criticalPermissions) {
+    var status = await permission.status;
+    if (!status.isGranted) {
+      status = await permission.request();
+      if (!status.isGranted) {
+        debugPrint('⚠️ CRITICAL: ${permission.toString()} not granted: $status');
+        // Show dialog to user explaining importance
+      } else {
+        debugPrint('✅ CRITICAL: ${permission.toString()} granted');
+      }
+    }
+  }
+  
+  // Other permissions
+  final permissions = [
     Permission.storage,
     Permission.camera,
     Permission.microphone,
@@ -50,6 +70,13 @@ Future<void> _requestPermissions() async {
 
   // Request all permissions
   final statuses = await permissions.request();
+  
+  // Double-check location permissions specifically for Nearby Connections
+  if (await Permission.location.status != PermissionStatus.granted) {
+    debugPrint('🔥 CRITICAL: Location permission still not granted, requesting again...');
+    await Permission.location.request();
+    await Permission.locationWhenInUse.request();
+  }
   
   // Log permission results
   for (final permission in permissions) {
@@ -138,8 +165,8 @@ class CompleteOffGridSOSApp extends StatelessWidget {
         ),
         initialRoute: '/',
         routes: {
-          '/': (context) => const HomeScreen(),
-          '/home': (context) => const HomeScreen(),
+          '/': (context) => const ImprovedHomeScreen(),
+          '/home': (context) => const ImprovedHomeScreen(),
           '/chat': (context) => const ChatScreen(),
           '/sos': (context) => const EnhancedSOSScreen(),
           '/settings': (context) => const UserSettingsScreen(),

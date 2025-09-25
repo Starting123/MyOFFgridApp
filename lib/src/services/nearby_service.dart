@@ -35,13 +35,27 @@ class NearbyService {
     try {
       debugPrint('🔄 กำลังขอ permissions สำหรับ Nearby Connections...');
       
-      // Request location permission (required for device discovery)
-      final locationStatus = await Permission.location.request();
-      if (!locationStatus.isGranted) {
-        debugPrint('❌ Location permission ถูกปฏิเสธ');
-        return false;
+      // Request ALL location permissions (critical for Nearby Connections)
+      final locationPermissions = [
+        Permission.location,
+        Permission.locationWhenInUse,
+      ];
+      
+      bool allLocationGranted = true;
+      for (final permission in locationPermissions) {
+        final status = await permission.request();
+        if (status.isGranted) {
+          debugPrint('✅ ${permission.toString()} อนุมัติแล้ว');
+        } else {
+          debugPrint('❌ ${permission.toString()} ถูกปฏิเสธ: $status');
+          allLocationGranted = false;
+        }
       }
-      debugPrint('✅ Location permission อนุมัติแล้ว');
+      
+      if (!allLocationGranted) {
+        debugPrint('❌ Location permissions ไม่ครบถ้วน - Nearby Connections จะไม่ทำงาน');
+        // Continue anyway to test other features
+      }
       
       if (Platform.isAndroid) {
         // Request Bluetooth permissions for Android 12+
@@ -113,11 +127,50 @@ class NearbyService {
   }
 
   // Start discovering nearby devices
+  // Check location permissions specifically for discovery
+  Future<bool> _ensureLocationPermissions() async {
+    debugPrint('🔍 ตรวจสอบ location permissions สำหรับ discovery...');
+    
+    // Check current status
+    final locationStatus = await Permission.location.status;
+    final locationWhenInUseStatus = await Permission.locationWhenInUse.status;
+    
+    debugPrint('Location: $locationStatus, LocationWhenInUse: $locationWhenInUseStatus');
+    
+    // If not granted, request again
+    if (!locationStatus.isGranted) {
+      debugPrint('🔥 Requesting location permission...');
+      final newStatus = await Permission.location.request();
+      if (!newStatus.isGranted) {
+        debugPrint('❌ Location permission still denied: $newStatus');
+        return false;
+      }
+    }
+    
+    if (!locationWhenInUseStatus.isGranted) {
+      debugPrint('🔥 Requesting locationWhenInUse permission...');
+      final newStatus = await Permission.locationWhenInUse.request();
+      if (!newStatus.isGranted) {
+        debugPrint('❌ LocationWhenInUse permission still denied: $newStatus');
+        return false;
+      }
+    }
+    
+    debugPrint('✅ All location permissions confirmed');
+    return true;
+  }
+
   Future<void> startDiscovery() async {
     if (_isDiscovering) {
       debugPrint('⚠️ กำลังทำ discovery อยู่แล้ว - หยุดก่อนแล้วเริ่มใหม่');
       await stopDiscovery();
       await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    // Double-check location permissions before starting discovery
+    if (!await _ensureLocationPermissions()) {
+      debugPrint('❌ Cannot start discovery - location permissions not granted');
+      throw Exception('Location permissions required for device discovery');
     }
 
     try {
