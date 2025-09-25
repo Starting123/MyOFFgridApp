@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
+import 'package:pointycastle/api.dart';
 
 class EncryptionService {
   static final EncryptionService _instance = EncryptionService._internal();
@@ -15,7 +16,7 @@ class EncryptionService {
   static const curve = 'secp256r1';
   
   // Key pairs for ECDH
-  late AsymmetricKeyPair<ECPublicKey, ECPrivateKey> _keyPair;
+  late AsymmetricKeyPair<PublicKey, PrivateKey> _keyPair;
   final Map<String, Uint8List> _sharedSecrets = {};
 
   EncryptionService._internal() {
@@ -23,20 +24,40 @@ class EncryptionService {
   }
 
   void _generateKeyPair() {
-    final domainParams = ECDomainParameters(curve);
-    final keyGen = ECKeyGenerator()
-      ..init(ParametersWithRandom(
-        ECKeyGeneratorParameters(domainParams),
-        _secureRandom,
-      ));
-    _keyPair = keyGen.generateKeyPair() as AsymmetricKeyPair<ECPublicKey, ECPrivateKey>;
+    try {
+      final domainParams = ECDomainParameters(curve);
+      final keyGen = ECKeyGenerator()
+        ..init(ParametersWithRandom(
+          ECKeyGeneratorParameters(domainParams),
+          _secureRandom,
+        ));
+      final keyPair = keyGen.generateKeyPair();
+      _keyPair = keyPair;
+    } catch (e) {
+      print('Error generating key pair: $e');
+      // Fallback key generation
+      _generateSimpleKeyPair();
+    }
+  }
+
+  void _generateSimpleKeyPair() {
+    try {
+      final keyGen = ECKeyGenerator();
+      final params = ECKeyGeneratorParameters(ECDomainParameters(curve));
+      keyGen.init(ParametersWithRandom(params, _secureRandom));
+      _keyPair = keyGen.generateKeyPair();
+    } catch (e) {
+      print('Error with simple key generation: $e');
+      rethrow;
+    }
   }
 
   // Get public key to share with other devices
   String getPublicKey() {
-    final publicKey = _keyPair.publicKey.Q!;
-    final xBigInt = publicKey.x!.toBigInteger()!;
-    final yBigInt = publicKey.y!.toBigInteger()!;
+    final publicKey = _keyPair.publicKey as ECPublicKey;
+    final q = publicKey.Q!;
+    final xBigInt = q.x!.toBigInteger()!;
+    final yBigInt = q.y!.toBigInteger()!;
     return base64Encode(
       Uint8List.fromList([
         ...bigIntToBytes(xBigInt),
@@ -65,7 +86,7 @@ class EncryptionService {
 
     // Compute ECDH shared secret
     final agreement = ECDHBasicAgreement()
-      ..init(_keyPair.privateKey);
+      ..init(_keyPair.privateKey as ECPrivateKey);
     final sharedSecret = agreement.calculateAgreement(peerPublicKey);
     
     // Derive encryption key using HKDF

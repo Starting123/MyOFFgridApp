@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'src/ui/screens/improved_home_screen.dart';
-import 'src/ui/screens/chat_screen.dart';
-import 'src/ui/screens/enhanced_sos_screen.dart';
-import 'src/ui/screens/user_settings_screen.dart';
-import 'src/ui/screens/real_device_list_screen.dart';
+import 'src/ui/screens/modern_main_navigation.dart';
 import 'src/services/nearby_service.dart';
 import 'src/utils/background_service_manager.dart';
 
@@ -163,15 +159,7 @@ class CompleteOffGridSOSApp extends StatelessWidget {
             ),
           ),
         ),
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const ImprovedHomeScreen(),
-          '/home': (context) => const ImprovedHomeScreen(),
-          '/chat': (context) => const ChatScreen(),
-          '/sos': (context) => const EnhancedSOSScreen(),
-          '/settings': (context) => const UserSettingsScreen(),
-          '/devices': (context) => const RealDeviceListScreen(),
-        },
+        home: const ModernMainNavigation(),
       ),
     );
   }
