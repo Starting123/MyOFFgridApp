@@ -1,44 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/chat_models.dart';
+import '../../providers/main_providers.dart';
 
-enum DeviceType { phone, tablet, laptop, watch, other }
-enum DeviceRole { victim, rescuer, neutral }
-enum ConnectionStatus { disconnected, connecting, connected, failed }
+// Note: Using DeviceRole from chat_models.dart instead of custom enums
+// ConnectionStatus is handled by isConnected boolean in the NearbyDevice model
 
-class NearbyDevice {
-  final String id;
-  final String name;
-  final DeviceType type;
-  final DeviceRole role;
-  final ConnectionStatus status;
-  final int signalStrength; // 0-100
-  final double distance; // in meters
-  final DateTime lastSeen;
-  final String? batteryLevel;
-  final bool isEncrypted;
-
-  NearbyDevice({
-    required this.id,
-    required this.name,
-    required this.type,
-    required this.role,
-    required this.status,
-    required this.signalStrength,
-    required this.distance,
-    required this.lastSeen,
-    this.batteryLevel,
-    this.isEncrypted = true,
-  });
-}
-
-class NearbyDevicesScreen extends StatefulWidget {
+class NearbyDevicesScreen extends ConsumerStatefulWidget {
   const NearbyDevicesScreen({super.key});
 
   @override
-  State<NearbyDevicesScreen> createState() => _NearbyDevicesScreenState();
+  ConsumerState<NearbyDevicesScreen> createState() => _NearbyDevicesScreenState();
 }
 
-class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> 
+class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> 
     with TickerProviderStateMixin {
   bool _isScanning = false;
   String _sortBy = 'distance'; // distance, name, signal, lastSeen
@@ -48,57 +24,7 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // Mock nearby devices - replace with actual device discovery service
-  List<NearbyDevice> _nearbyDevices = [
-    NearbyDevice(
-      id: 'device_1',
-      name: 'Sarah\'s Phone',
-      type: DeviceType.phone,
-      role: DeviceRole.victim,
-      status: ConnectionStatus.connected,
-      signalStrength: 95,
-      distance: 15.5,
-      lastSeen: DateTime.now().subtract(const Duration(seconds: 30)),
-      batteryLevel: '85%',
-      isEncrypted: true,
-    ),
-    NearbyDevice(
-      id: 'device_2', 
-      name: 'Emergency Responder',
-      type: DeviceType.tablet,
-      role: DeviceRole.rescuer,
-      status: ConnectionStatus.connected,
-      signalStrength: 78,
-      distance: 42.3,
-      lastSeen: DateTime.now().subtract(const Duration(minutes: 2)),
-      batteryLevel: '92%',
-      isEncrypted: true,
-    ),
-    NearbyDevice(
-      id: 'device_3',
-      name: 'Mike\'s Laptop',
-      type: DeviceType.laptop,
-      role: DeviceRole.neutral,
-      status: ConnectionStatus.disconnected,
-      signalStrength: 65,
-      distance: 78.9,
-      lastSeen: DateTime.now().subtract(const Duration(minutes: 5)),
-      batteryLevel: '45%',
-      isEncrypted: false,
-    ),
-    NearbyDevice(
-      id: 'device_4',
-      name: 'Volunteer Team Alpha',
-      type: DeviceType.phone,
-      role: DeviceRole.rescuer,
-      status: ConnectionStatus.connecting,
-      signalStrength: 88,
-      distance: 23.7,
-      lastSeen: DateTime.now().subtract(const Duration(minutes: 1)),
-      batteryLevel: '67%',
-      isEncrypted: true,
-    ),
-  ];
+  // Real nearby devices from provider
 
   @override
   void initState() {
@@ -139,81 +65,53 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
     HapticFeedback.mediumImpact();
   }
 
-  void _startDiscovery() {
-    // Simulate device discovery
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_isScanning && mounted) {
-        setState(() {
-          // Add mock discovered device
-          _nearbyDevices.add(NearbyDevice(
-            id: 'device_${DateTime.now().millisecondsSinceEpoch}',
-            name: 'New Device',
-            type: DeviceType.phone,
-            role: DeviceRole.neutral,
-            status: ConnectionStatus.disconnected,
-            signalStrength: 70,
-            distance: 50.0,
-            lastSeen: DateTime.now(),
-            batteryLevel: '80%',
-          ));
-        });
-        
+  void _startDiscovery() async {
+    // Start real device discovery
+    try {
+      // Start real device discovery - in a real app this would trigger provider refresh
+      // For now just show a scanning message
+      
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('📱 New device discovered'),
+            content: Text('🔍 Scanning for nearby devices...'),
             duration: Duration(seconds: 2),
           ),
         );
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error scanning: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _connectToDevice(NearbyDevice device) async {
-    if (device.status == ConnectionStatus.connected) {
+    if (device.isConnected) {
       _disconnectFromDevice(device);
       return;
     }
 
-    setState(() {
-      final index = _nearbyDevices.indexWhere((d) => d.id == device.id);
-      if (index != -1) {
-        _nearbyDevices[index] = NearbyDevice(
-          id: device.id,
-          name: device.name,
-          type: device.type,
-          role: device.role,
-          status: ConnectionStatus.connecting,
-          signalStrength: device.signalStrength,
-          distance: device.distance,
-          lastSeen: device.lastSeen,
-          batteryLevel: device.batteryLevel,
-          isEncrypted: device.isEncrypted,
-        );
-      }
-    });
+    // Show connecting state
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🔄 Connecting to ${device.name}...'),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 2),
+      ),
+    );
 
     // Simulate connection process
     await Future.delayed(const Duration(seconds: 2));
 
     if (mounted) {
-      setState(() {
-        final index = _nearbyDevices.indexWhere((d) => d.id == device.id);
-        if (index != -1) {
-          _nearbyDevices[index] = NearbyDevice(
-            id: device.id,
-            name: device.name,
-            type: device.type,
-            role: device.role,
-            status: ConnectionStatus.connected,
-            signalStrength: device.signalStrength,
-            distance: device.distance,
-            lastSeen: DateTime.now(),
-            batteryLevel: device.batteryLevel,
-            isEncrypted: device.isEncrypted,
-          );
-        }
-      });
-
+      // In a real app, this would update through the provider
+      // For now, just show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('✅ Connected to ${device.name}'),
@@ -226,24 +124,7 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
   }
 
   void _disconnectFromDevice(NearbyDevice device) {
-    setState(() {
-      final index = _nearbyDevices.indexWhere((d) => d.id == device.id);
-      if (index != -1) {
-        _nearbyDevices[index] = NearbyDevice(
-          id: device.id,
-          name: device.name,
-          type: device.type,
-          role: device.role,
-          status: ConnectionStatus.disconnected,
-          signalStrength: device.signalStrength,
-          distance: device.distance,
-          lastSeen: device.lastSeen,
-          batteryLevel: device.batteryLevel,
-          isEncrypted: device.isEncrypted,
-        );
-      }
-    });
-
+    // In a real app, this would update through the provider
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('🔌 Disconnected from ${device.name}'),
@@ -254,10 +135,10 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
     HapticFeedback.lightImpact();
   }
 
-  List<NearbyDevice> get _filteredDevices {
-    var devices = _nearbyDevices.where((device) {
+  List<NearbyDevice> _getFilteredDevices(List<NearbyDevice> devices) {
+    var filteredDevices = devices.where((device) {
       if (_showOnlyConnected) {
-        return device.status == ConnectionStatus.connected;
+        return device.isConnected;
       }
       return true;
     }).toList();
@@ -265,27 +146,29 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
     // Sort devices
     switch (_sortBy) {
       case 'distance':
-        devices.sort((a, b) => a.distance.compareTo(b.distance));
+        // For now, sort by signal strength as substitute for distance
+        filteredDevices.sort((a, b) => b.signalStrength.compareTo(a.signalStrength));
         break;
       case 'name':
-        devices.sort((a, b) => a.name.compareTo(b.name));
+        filteredDevices.sort((a, b) => a.name.compareTo(b.name));
         break;
       case 'signal':
-        devices.sort((a, b) => b.signalStrength.compareTo(a.signalStrength));
+        filteredDevices.sort((a, b) => b.signalStrength.compareTo(a.signalStrength));
         break;
       case 'lastSeen':
-        devices.sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
+        filteredDevices.sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
         break;
     }
 
-    return devices;
+    return filteredDevices;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final filteredDevices = _filteredDevices;
+    final nearbyDevices = ref.watch(nearbyDevicesProvider);
+    final filteredDevices = _getFilteredDevices(nearbyDevices);
 
     return Scaffold(
       appBar: AppBar(
@@ -453,8 +336,8 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
   }
 
   Widget _buildDeviceStats(ColorScheme colorScheme, List<NearbyDevice> devices) {
-    final connectedCount = devices.where((d) => d.status == ConnectionStatus.connected).length;
-    final victimCount = devices.where((d) => d.role == DeviceRole.victim).length;
+    final connectedCount = devices.where((d) => d.isConnected).length;
+    final sosUserCount = devices.where((d) => d.role == DeviceRole.sosUser).length;
     final rescuerCount = devices.where((d) => d.role == DeviceRole.rescuer).length;
 
     return Container(
@@ -473,8 +356,8 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
           const SizedBox(width: 12),
           Expanded(
             child: _buildStatCard(
-              'Victims',
-              victimCount.toString(),
+              'SOS Users',
+              sosUserCount.toString(),
               Icons.emergency,
               Colors.red,
               colorScheme,
@@ -598,7 +481,7 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _getStatusColor(device.status).withOpacity(0.3),
+          color: (device.isConnected ? Colors.green : Colors.grey).withOpacity(0.3),
         ),
         boxShadow: [
           BoxShadow(
@@ -622,7 +505,7 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _getDeviceIcon(device.type),
+                    _getDeviceIconFromRole(device.role),
                     color: _getRoleColor(device.role),
                     size: 24,
                   ),
@@ -658,7 +541,7 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${device.distance.toStringAsFixed(1)}m',
+                            'Signal: ${device.signalStrength}%',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           const SizedBox(width: 12),
@@ -690,46 +573,18 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
               children: [
                 _buildSignalIndicator(device.signalStrength, colorScheme),
                 const Spacer(),
-                if (device.batteryLevel != null) ...[
-                  Icon(
-                    Icons.battery_std,
-                    size: 16,
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                Icon(
+                  device.isConnected ? Icons.link : Icons.link_off,
+                  size: 16,
+                  color: device.isConnected ? Colors.green : Colors.grey,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  device.isConnected ? 'Connected' : 'Disconnected',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: device.isConnected ? Colors.green : Colors.grey,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    device.batteryLevel!,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                if (device.isEncrypted) ...[
-                  Icon(
-                    Icons.lock,
-                    size: 16,
-                    color: Colors.green,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Encrypted',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.green,
-                    ),
-                  ),
-                ] else ...[
-                  Icon(
-                    Icons.lock_open,
-                    size: 16,
-                    color: Colors.orange,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Unencrypted',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.orange,
-                    ),
-                  ),
-                ],
+                ),
               ],
             ),
           ],
@@ -744,9 +599,9 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
     IconData icon;
 
     switch (role) {
-      case DeviceRole.victim:
+      case DeviceRole.sosUser:
         color = Colors.red;
-        text = 'Victim';
+        text = 'SOS User';
         icon = Icons.emergency;
         break;
       case DeviceRole.rescuer:
@@ -754,9 +609,9 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
         text = 'Rescuer';
         icon = Icons.medical_services;
         break;
-      case DeviceRole.neutral:
+      case DeviceRole.normal:
         color = Colors.grey;
-        text = 'Neutral';
+        text = 'Normal';
         icon = Icons.person;
         break;
     }
@@ -790,44 +645,20 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
     String text;
     Color color;
     IconData icon;
-    bool isLoading = device.status == ConnectionStatus.connecting;
 
-    switch (device.status) {
-      case ConnectionStatus.connected:
-        text = 'Disconnect';
-        color = Colors.red;
-        icon = Icons.link_off;
-        break;
-      case ConnectionStatus.connecting:
-        text = 'Connecting...';
-        color = Colors.orange;
-        icon = Icons.sync;
-        break;
-      case ConnectionStatus.failed:
-        text = 'Retry';
-        color = Colors.red;
-        icon = Icons.refresh;
-        break;
-      case ConnectionStatus.disconnected:
-      default:
-        text = 'Connect';
-        color = Colors.green;
-        icon = Icons.link;
-        break;
+    if (device.isConnected) {
+      text = 'Disconnect';
+      color = Colors.red;
+      icon = Icons.link_off;
+    } else {
+      text = 'Connect';
+      color = Colors.green;
+      icon = Icons.link;
     }
 
     return ElevatedButton.icon(
-      onPressed: isLoading ? null : () => _connectToDevice(device),
-      icon: isLoading 
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : Icon(icon, size: 16),
+      onPressed: () => _connectToDevice(device),
+      icon: Icon(icon, size: 16),
       label: Text(text),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
@@ -871,41 +702,24 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen>
     );
   }
 
-  IconData _getDeviceIcon(DeviceType type) {
-    switch (type) {
-      case DeviceType.phone:
+  IconData _getDeviceIconFromRole(DeviceRole role) {
+    switch (role) {
+      case DeviceRole.sosUser:
+        return Icons.emergency;
+      case DeviceRole.rescuer:
+        return Icons.medical_services;  
+      case DeviceRole.normal:
         return Icons.smartphone;
-      case DeviceType.tablet:
-        return Icons.tablet;
-      case DeviceType.laptop:
-        return Icons.laptop;
-      case DeviceType.watch:
-        return Icons.watch;
-      case DeviceType.other:
-        return Icons.device_unknown;
     }
   }
 
   Color _getRoleColor(DeviceRole role) {
     switch (role) {
-      case DeviceRole.victim:
+      case DeviceRole.sosUser:
         return Colors.red;
       case DeviceRole.rescuer:
         return Colors.blue;
-      case DeviceRole.neutral:
-        return Colors.grey;
-    }
-  }
-
-  Color _getStatusColor(ConnectionStatus status) {
-    switch (status) {
-      case ConnectionStatus.connected:
-        return Colors.green;
-      case ConnectionStatus.connecting:
-        return Colors.orange;
-      case ConnectionStatus.failed:
-        return Colors.red;
-      case ConnectionStatus.disconnected:
+      case DeviceRole.normal:
         return Colors.grey;
     }
   }

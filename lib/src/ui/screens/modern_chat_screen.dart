@@ -1,32 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/chat_models.dart';
 
-enum MessageType { text, image, audio, location, file }
-enum MessageStatus { sending, sent, delivered, read, failed }
 
-class Message {
-  final String id;
-  final String content;
-  final String senderId;
-  final String senderName;
-  final DateTime timestamp;
-  final MessageType type;
-  final MessageStatus status;
-  final bool isFromMe;
+// Using ChatMessage, MessageType, MessageStatus from chat_models.dart
 
-  Message({
-    required this.id,
-    required this.content,
-    required this.senderId,
-    required this.senderName,
-    required this.timestamp,
-    required this.type,
-    required this.status,
-    required this.isFromMe,
-  });
-}
-
-class ModernChatScreen extends StatefulWidget {
+class ModernChatScreen extends ConsumerStatefulWidget {
   final String chatId;
   final String chatName;
   final bool isGroupChat;
@@ -39,10 +19,10 @@ class ModernChatScreen extends StatefulWidget {
   });
 
   @override
-  State<ModernChatScreen> createState() => _ModernChatScreenState();
+  ConsumerState<ModernChatScreen> createState() => _ModernChatScreenState();
 }
 
-class _ModernChatScreenState extends State<ModernChatScreen> {
+class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusFocus = FocusNode();
@@ -50,49 +30,8 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
   bool _isTyping = false;
   bool _showScrollButton = false;
 
-  // Mock messages - replace with actual message provider
-  List<Message> _messages = [
-    Message(
-      id: '1',
-      content: 'Is anyone in the area? We need assistance!',
-      senderId: 'user1',
-      senderName: 'Emergency Contact',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-      type: MessageType.text,
-      status: MessageStatus.read,
-      isFromMe: false,
-    ),
-    Message(
-      id: '2',
-      content: 'I\'m nearby and can help. What\'s your exact location?',
-      senderId: 'me',
-      senderName: 'You',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 12)),
-      type: MessageType.text,
-      status: MessageStatus.delivered,
-      isFromMe: true,
-    ),
-    Message(
-      id: '3',
-      content: 'Coordinates: 37.7749, -122.4194',
-      senderId: 'user1',
-      senderName: 'Emergency Contact',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
-      type: MessageType.location,
-      status: MessageStatus.read,
-      isFromMe: false,
-    ),
-    Message(
-      id: '4',
-      content: 'On my way! Should be there in 5 minutes.',
-      senderId: 'me',
-      senderName: 'You',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 8)),
-      type: MessageType.text,
-      status: MessageStatus.sent,
-      isFromMe: true,
-    ),
-  ];
+  // Temporary message list - should be replaced with provider data
+  List<ChatMessage> _messages = [];
 
   @override
   void initState() {
@@ -142,24 +81,28 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    final newMessage = Message(
+    final newMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       content: text,
       senderId: 'me',
       senderName: 'You',
+      receiverId: widget.chatId,
       timestamp: DateTime.now(),
       type: MessageType.text,
       status: MessageStatus.sending,
-      isFromMe: true,
+      isEmergency: false,
     );
 
+    // Send through provider instead of local state
+    // TODO: Send through provider
+    // ref.read(enhancedChatProvider.notifier).sendMessage(newMessage);
+    
+    // Temporarily add to local list
     setState(() {
       _messages.add(newMessage);
-      _messageController.clear();
     });
-
-    // Simulate message sending
-    _simulateMessageSending(newMessage.id);
+    
+    _messageController.clear();
     
     // Auto-scroll to bottom
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -170,49 +113,7 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
     HapticFeedback.lightImpact();
   }
 
-  void _simulateMessageSending(String messageId) {
-    // Simulate network delay
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          final index = _messages.indexWhere((msg) => msg.id == messageId);
-          if (index != -1) {
-            _messages[index] = Message(
-              id: _messages[index].id,
-              content: _messages[index].content,
-              senderId: _messages[index].senderId,
-              senderName: _messages[index].senderName,
-              timestamp: _messages[index].timestamp,
-              type: _messages[index].type,
-              status: MessageStatus.sent,
-              isFromMe: _messages[index].isFromMe,
-            );
-          }
-        });
-      }
-    });
 
-    // Simulate delivery confirmation
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          final index = _messages.indexWhere((msg) => msg.id == messageId);
-          if (index != -1) {
-            _messages[index] = Message(
-              id: _messages[index].id,
-              content: _messages[index].content,
-              senderId: _messages[index].senderId,
-              senderName: _messages[index].senderName,
-              timestamp: _messages[index].timestamp,
-              type: _messages[index].type,
-              status: MessageStatus.delivered,
-              isFromMe: _messages[index].isFromMe,
-            );
-          }
-        });
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +251,7 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
     );
   }
 
-  bool _shouldShowDateSeparator(Message current, Message? previous) {
+  bool _shouldShowDateSeparator(ChatMessage current, ChatMessage? previous) {
     if (previous == null) return true;
     
     final currentDate = DateTime(
@@ -367,7 +268,7 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
     return !currentDate.isAtSameMomentAs(previousDate);
   }
 
-  Widget _buildDateSeparator(Message message) {
+  Widget _buildDateSeparator(ChatMessage message) {
     final now = DateTime.now();
     final messageDate = message.timestamp;
     
@@ -405,8 +306,8 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(Message message, ColorScheme colorScheme) {
-    final isMe = message.isFromMe;
+  Widget _buildMessageBubble(ChatMessage message, ColorScheme colorScheme) {
+    final isMe = message.senderId == 'me';
     
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -497,7 +398,7 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
     );
   }
 
-  Widget _buildMessageContent(Message message, ColorScheme colorScheme, bool isMe) {
+  Widget _buildMessageContent(ChatMessage message, ColorScheme colorScheme, bool isMe) {
     switch (message.type) {
       case MessageType.text:
         return Text(
@@ -592,6 +493,10 @@ class _ModernChatScreenState extends State<ModernChatScreen> {
       case MessageStatus.failed:
         icon = Icons.error_outline;
         color = Colors.red;
+        break;
+      case MessageStatus.synced:
+        icon = Icons.cloud_done;
+        color = Colors.green;
         break;
     }
     

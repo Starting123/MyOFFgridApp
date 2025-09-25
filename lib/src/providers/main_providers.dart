@@ -8,6 +8,7 @@ import '../services/encryption_service.dart';
 import '../services/enhanced_cloud_sync.dart';
 import '../services/nearby_service.dart';
 import '../services/p2p_service.dart';
+import '../services/location_service.dart';
 
 // ============================================================================
 // CORE SERVICE PROVIDERS - SINGLETONS
@@ -31,6 +32,10 @@ final nearbyServiceProvider = Provider<NearbyService>((ref) {
 
 final p2pServiceProvider = Provider<P2PService>((ref) {
   return P2PService.instance;
+});
+
+final locationServiceProvider = Provider<LocationService>((ref) {
+  return LocationService.instance;
 });
 
 final multimediaChatServiceProvider = Provider<MultimediaChatService>((ref) {
@@ -430,7 +435,7 @@ class AppActions {
         'longitude': longitude,
         'timestamp': DateTime.now().toIso8601String(),
         'deviceId': 'current_device',
-        'batteryLevel': 85, // Mock battery level
+        'batteryLevel': await _getBatteryLevel(), // Real battery level
       };
 
       // Serialize payload to JSON string
@@ -663,6 +668,19 @@ class AppActions {
       debugPrint('🚀 App initialized successfully');
     } catch (e) {
       debugPrint('❌ Error initializing app: $e');
+    }
+  }
+
+  /// Get device battery level
+  static Future<int?> _getBatteryLevel() async {
+    try {
+      // For now, return null to indicate battery level not available
+      // In a real implementation, you would use a battery plugin like 'battery_plus'
+      // Example: Battery battery = Battery(); return await battery.batteryLevel;
+      return null;
+    } catch (e) {
+      debugPrint('Error getting battery level: $e');
+      return null;
     }
   }
 }

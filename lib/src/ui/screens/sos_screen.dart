@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/main_providers.dart';
 
 enum SOSMode { inactive, victim, rescuer }
 
-class SOSScreen extends StatefulWidget {
+class SOSScreen extends ConsumerStatefulWidget {
   const SOSScreen({super.key});
 
   @override
-  State<SOSScreen> createState() => _SOSScreenState();
+  ConsumerState<SOSScreen> createState() => _SOSScreenState();
 }
 
-class _SOSScreenState extends State<SOSScreen> 
+class _SOSScreenState extends ConsumerState<SOSScreen> 
     with SingleTickerProviderStateMixin {
   SOSMode currentMode = SOSMode.inactive;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // Mock location data - replace with actual location service
-  String latitude = "37.7749";
-  String longitude = "-122.4194";
-  String locationName = "San Francisco, CA";
+  // Real location data from location service
+  String latitude = "Loading...";
+  String longitude = "Loading...";
+  String locationName = "Getting location...";
 
   @override
   void initState() {
@@ -35,6 +37,49 @@ class _SOSScreenState extends State<SOSScreen>
       parent: _pulseController,
       curve: Curves.easeInOut,
     ));
+    
+    // Load real location data
+    _loadCurrentLocation();
+  }
+
+  Future<void> _loadCurrentLocation() async {
+    try {
+      final locationService = ref.read(locationServiceProvider);
+      final position = await locationService.getCurrentPosition();
+      
+      if (position != null && mounted) {
+        setState(() {
+          latitude = position.latitude.toStringAsFixed(6);
+          longitude = position.longitude.toStringAsFixed(6);
+        });
+        
+        // Try to get address
+        final address = await locationService.getAddressFromCoordinates(
+          position.latitude, 
+          position.longitude
+        );
+        
+        if (mounted) {
+          setState(() {
+            locationName = address ?? "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+          });
+        }
+      } else if (mounted) {
+        setState(() {
+          latitude = "Unknown";
+          longitude = "Unknown";
+          locationName = "Location unavailable";
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          latitude = "Error";
+          longitude = "Error";
+          locationName = "Location unavailable";
+        });
+      }
+    }
   }
 
   @override

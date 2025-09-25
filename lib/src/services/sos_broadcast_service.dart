@@ -222,10 +222,17 @@ class SOSBroadcastService {
     throw Exception('Invalid SOS broadcast format');
   }
 
-  /// Get device battery level (placeholder)
+  /// Get device battery level
   Future<int?> _getBatteryLevel() async {
-    // TODO: Implement battery level detection
-    return 85; // Mock battery level
+    try {
+      // For now, return null to indicate battery level not available
+      // In a real implementation, you would use a battery plugin like 'battery_plus'
+      // Example: Battery battery = Battery(); return await battery.batteryLevel;
+      return null;
+    } catch (e) {
+      print('Error getting battery level: $e');
+      return null;
+    }
   }
 
   /// Dispose resources
