@@ -133,16 +133,24 @@ class RealSOSNotifier extends Notifier<bool> {
         return;
       }
       
-      // Start advertising as SOS device
-      debugPrint('📡 เริ่ม advertising...');
-      await _p2pService?.startAdvertising(deviceName);
+      // FIXED: Start advertising with clear SOS prefix
+      debugPrint('📡 เริ่ม advertising: SOS_$deviceName');
+      await _p2pService?.startAdvertising('SOS_$deviceName');
       await _nearbyService?.startAdvertising('SOS_$deviceName');
+      
+      // Wait for advertising to establish
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // ALSO start discovery to see other devices
+      debugPrint('🔍 เริ่ม discovery เพื่อหาอุปกรณ์อื่น...');
+      await _p2pService?.startDiscovery();
+      await _nearbyService?.startDiscovery();
       
       // Broadcast SOS signal
       final sosData = {
         'type': 'sos',
         'active': true,
-        'deviceId': 'device_${DateTime.now().millisecondsSinceEpoch}',
+        'deviceId': 'SOS_${DateTime.now().millisecondsSinceEpoch}',
         'deviceName': deviceName,
         'deviceType': userInfo['deviceType'],
         'timestamp': DateTime.now().toIso8601String(),
@@ -150,6 +158,7 @@ class RealSOSNotifier extends Notifier<bool> {
         'priority': 'high',
       };
       
+      debugPrint('📢 Broadcasting SOS signal...');
       await _p2pService?.sendSOS(sosData['message'] as String);
       await _nearbyService?.broadcastSOS(
         deviceId: sosData['deviceId'] as String,
@@ -160,16 +169,19 @@ class RealSOSNotifier extends Notifier<bool> {
           'priority': 'high',
         },
       );
+      
+      debugPrint('✅ SOS Broadcasting เสร็จสิ้น');
     } else {
       // Deactivate SOS
+      debugPrint('🔴 ปิด SOS Mode...');
       state = false;
       
       // Broadcast SOS deactivation
       await _p2pService?.sendMessage('SOS deactivated by $deviceName');
       
-      // Optionally stop advertising (or keep it for normal communication)
-      // await _p2pService?.stopAdvertising();
-      // await _nearbyService?.stopAdvertising();
+      // Stop discovery but keep advertising for normal communication
+      await _p2pService?.stopDiscovery();
+      await _nearbyService?.stopDiscovery();
     }
   }
 
@@ -220,14 +232,24 @@ class RealRescuerModeNotifier extends Notifier<bool> {
         return;
       }
       
-      // Start rescuer mode - begin scanning for SOS signals
+      // FIXED: Start advertising FIRST, then discovery
+      debugPrint('📡 เริ่ม advertising ก่อน...');
+      await _p2pService?.startAdvertising('Rescuer_$deviceName');
+      await _nearbyService?.startAdvertising('Rescuer_$deviceName');
+      
+      // Wait a bit for advertising to establish
+      await Future.delayed(const Duration(seconds: 2));
+      
       debugPrint('🔍 เริ่มสแกนหา SOS signals...');
       await _p2pService?.startDiscovery();
       await _nearbyService?.startDiscovery();
-      await _p2pService?.startAdvertising('Rescuer_$deviceName');
-      await _nearbyService?.startAdvertising('Rescuer_$deviceName');
+      
+      // Trigger immediate device scanning
+      ref.read(realNearbyDevicesProvider.notifier).startScanning();
+      
     } else {
       // Stop rescuer mode - stop scanning
+      debugPrint('🔴 ปิด Rescuer Mode...');
       await _p2pService?.stopDiscovery();
       await _nearbyService?.stopDiscovery();
       // Keep advertising for normal communication
@@ -365,11 +387,31 @@ class RealNearbyDevicesNotifier extends Notifier<List<RealNearbyDevice>> {
   }
 
   Future<void> startScanning() async {
+    debugPrint('🔍 RealDevices: เริ่มสแกนหาอุปกรณ์ใกล้เคียง...');
+    
+    // Initialize if needed
     await _p2pService?.initialize();
     await _nearbyService?.initialize();
     
+    // Start both services
+    debugPrint('📡 เริ่ม P2P discovery...');
     await _p2pService?.startDiscovery();
+    
+    debugPrint('📡 เริ่ม Nearby discovery...');
     await _nearbyService?.startDiscovery();
+    
+    // Force a manual scan after a delay
+    Future.delayed(const Duration(seconds: 3), () {
+      debugPrint('🔄 Force refresh scan...');
+      _triggerManualScan();
+    });
+  }
+
+  void _triggerManualScan() {
+    // This will trigger any pending callbacks or force service refresh
+    debugPrint('🔄 Manual scan trigger...');
+    // Force a state refresh to trigger UI updates
+    state = [...state];
   }
 
   Future<void> stopScanning() async {
