@@ -170,6 +170,45 @@ class EncryptionService {
     return utf8.decode(plaintext);
   }
 
+  // High-level message encryption methods
+  String encryptMessage(String content, String recipientId) {
+    try {
+      if (!_sharedSecrets.containsKey(recipientId)) {
+        // For emergency messages, return unencrypted (they should be readable by all)
+        return content;
+      }
+      return encryptString(recipientId, content);
+    } catch (e) {
+      Logger.error('Error encrypting message', 'Encryption', e);
+      // Return original content if encryption fails
+      return content;
+    }
+  }
+
+  String decryptMessage(String encryptedContent, String senderId) {
+    try {
+      if (!_sharedSecrets.containsKey(senderId)) {
+        // If no shared secret, assume it's unencrypted
+        return encryptedContent;
+      }
+      return decryptString(senderId, encryptedContent);
+    } catch (e) {
+      Logger.error('Error decrypting message', 'Encryption', e);
+      // Return original content if decryption fails
+      return encryptedContent;
+    }
+  }
+
+  // Check if we can encrypt for a peer
+  bool canEncryptForPeer(String peerId) {
+    return _sharedSecrets.containsKey(peerId);
+  }
+
+  // Get all peers we have shared secrets with
+  List<String> getEncryptionPeers() {
+    return _sharedSecrets.keys.toList();
+  }
+
   // Clean up shared secrets for a peer
   void removePeer(String peerId) {
     _sharedSecrets.remove(peerId);

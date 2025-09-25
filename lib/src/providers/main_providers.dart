@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import '../models/chat_models.dart';
@@ -421,37 +422,62 @@ class AppActions {
       // Add to local message state
       addMessage(ref, sosMessage);
       
-      // Save to database
+      // Save to database with pending status
       final dbService = ref.read(databaseServiceProvider);
-      await dbService.insertMessage(sosMessage);
+      await dbService.insertPendingMessage(sosMessage);
 
-      // Start SOS broadcasting service
+      // Create serialized SOS payload
+      final sosPayload = {
+        'type': 'sos_broadcast',
+        'id': sosMessage.id,
+        'emergencyType': emergencyType,
+        'message': emergencyMessage,
+        'latitude': latitude,
+        'longitude': longitude,
+        'timestamp': DateTime.now().toIso8601String(),
+        'deviceId': 'current_device',
+        'batteryLevel': 85, // Mock battery level
+      };
+
+      // Serialize payload to JSON string
+      final serializedPayload = jsonEncode(sosPayload);
+
+      // Start services
       final nearbyService = ref.read(nearbyServiceProvider);
+      final p2pService = ref.read(p2pServiceProvider);
+      
       await nearbyService.initialize();
+      await p2pService.initialize();
+      
+      // Start advertising as emergency device
       await nearbyService.startAdvertising('SOS_EMERGENCY');
       
-      // Broadcast SOS via NearbyService
-      await nearbyService.broadcastSOS(
-        deviceId: 'current_device',
-        message: '$emergencyType: $emergencyMessage',
-        additionalData: {
-          'latitude': latitude,
-          'longitude': longitude,
-          'timestamp': DateTime.now().toIso8601String(),
-          'emergencyType': emergencyType,
-        },
-      );
+      // Broadcast SOS via multiple channels
+      await Future.wait([
+        nearbyService.broadcastSOS(
+          deviceId: 'current_device',
+          message: serializedPayload,
+          additionalData: sosPayload,
+        ),
+        nearbyService.sendMessage(serializedPayload, type: 'sos_broadcast'),
+      ]);
 
       // Start discovery to find rescuers
       await startDiscovery(ref);
 
-      debugPrint('🚨 SOS broadcasted successfully via Nearby Connections');
-      debugPrint('📡 Emergency advertising started');
+      // Mark message as sent
+      await dbService.updateMessageStatus(sosMessage.id, MessageStatus.sent);
+
+      debugPrint('🚨 SOS broadcasted successfully with payload:');
+      debugPrint('📡 $serializedPayload');
       debugPrint('🔍 Discovery started to find rescuers');
       
     } catch (e) {
       debugPrint('❌ Error broadcasting SOS: $e');
-      // Update message status to failed
+      // Mark message as failed in database
+      final dbService = ref.read(databaseServiceProvider);
+      await dbService.updateMessageStatus(sosMessage.id, MessageStatus.failed);
+      
       final failedMessage = sosMessage.copyWith(status: MessageStatus.failed);
       addMessage(ref, failedMessage);
     }
@@ -459,24 +485,54 @@ class AppActions {
 
   static Future<void> sendTextMessage(WidgetRef ref, String conversationId, String content) async {
     try {
+      // Check if message should be encrypted
+      final encryptionService = ref.read(encryptionServiceProvider);
+      String finalContent = content;
+      bool isEncrypted = false;
+
+      // Only encrypt if not in emergency mode and we have encryption key for recipient
+      if (!AppState.emergencyMode && encryptionService.canEncryptForPeer(conversationId)) {
+        finalContent = encryptionService.encryptMessage(content, conversationId);
+        isEncrypted = true;
+      }
+
       final message = ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         senderId: 'current_device',
         senderName: 'Me',
         receiverId: conversationId,
-        content: content,
+        content: finalContent,
         type: MessageType.text,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
         isEmergency: AppState.emergencyMode,
+        metadata: isEncrypted ? {'encrypted': true} : null,
       );
 
       addMessage(ref, message);
 
-      final multimediaService = ref.read(multimediaChatServiceProvider);
-      await multimediaService.sendTextMessage(conversationId, content);
+      // Save to database as pending
+      final dbService = ref.read(databaseServiceProvider);
+      await dbService.insertPendingMessage(message);
 
-      debugPrint('📤 Text message sent successfully');
+      // Send via nearby service
+      final nearbyService = ref.read(nearbyServiceProvider);
+      final messagePayload = {
+        'type': 'text_message',
+        'id': message.id,
+        'content': finalContent,
+        'senderId': 'current_device',
+        'timestamp': DateTime.now().toIso8601String(),
+        'isEmergency': AppState.emergencyMode,
+        'isEncrypted': isEncrypted,
+      };
+
+      await nearbyService.sendMessage(jsonEncode(messagePayload), type: 'chat');
+
+      // Mark as sent
+      await dbService.updateMessageStatus(message.id, MessageStatus.sent);
+
+      debugPrint('📤 Text message sent successfully (encrypted: $isEncrypted)');
     } catch (e) {
       debugPrint('❌ Error sending text message: $e');
     }

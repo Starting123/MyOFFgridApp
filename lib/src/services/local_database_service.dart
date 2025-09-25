@@ -213,6 +213,93 @@ class LocalDatabaseService {
     });
   }
 
+  // Insert message with pending status for later delivery
+  Future<void> insertPendingMessage(ChatMessage message) async {
+    final messageWithPendingStatus = message.copyWith(status: MessageStatus.sending);
+    await insertMessage(messageWithPendingStatus);
+  }
+
+  // Deliver pending messages (mark as sent when delivered)
+  Future<List<ChatMessage>> deliverPendingMessages() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
+      where: 'status = ?',
+      whereArgs: [MessageStatus.sending.index],
+      orderBy: 'timestamp ASC',
+    );
+
+    final pendingMessages = List.generate(maps.length, (i) {
+      final map = maps[i];
+      return ChatMessage(
+        id: map['id'],
+        senderId: map['senderId'],
+        senderName: map['senderName'],
+        receiverId: map['receiverId'],
+        content: map['content'],
+        type: MessageType.values[map['type']],
+        status: MessageStatus.values[map['status']],
+        timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp']),
+        metadata: map['metadata'] != null ? jsonDecode(map['metadata']) : null,
+        filePath: map['filePath'],
+        latitude: map['latitude'],
+        longitude: map['longitude'],
+        isEmergency: map['isEmergency'] == 1,
+      );
+    });
+
+    // Mark pending messages as sent after successful delivery
+    for (final message in pendingMessages) {
+      await updateMessageStatus(message.id, MessageStatus.sent);
+    }
+
+    return pendingMessages;
+  }
+
+  // Mark message as synced to cloud
+  Future<void> markMessageSynced(String messageId) async {
+    final db = await database;
+    await db.update(
+      'messages',
+      {
+        'status': MessageStatus.synced.index,
+        'syncedToCloud': 1,
+      },
+      where: 'id = ?',
+      whereArgs: [messageId],
+    );
+  }
+
+  // Get messages that need cloud sync
+  Future<List<ChatMessage>> getUnsyncedMessages() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
+      where: 'syncedToCloud = ?',
+      whereArgs: [0],
+      orderBy: 'timestamp ASC',
+    );
+
+    return List.generate(maps.length, (i) {
+      final map = maps[i];
+      return ChatMessage(
+        id: map['id'],
+        senderId: map['senderId'],
+        senderName: map['senderName'],
+        receiverId: map['receiverId'],
+        content: map['content'],
+        type: MessageType.values[map['type']],
+        status: MessageStatus.values[map['status']],
+        timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp']),
+        metadata: map['metadata'] != null ? jsonDecode(map['metadata']) : null,
+        filePath: map['filePath'],
+        latitude: map['latitude'],
+        longitude: map['longitude'],
+        isEmergency: map['isEmergency'] == 1,
+      );
+    });
+  }
+
   // Nearby devices operations
   Future<void> insertOrUpdateNearbyDevice(NearbyDevice device) async {
     final db = await database;
