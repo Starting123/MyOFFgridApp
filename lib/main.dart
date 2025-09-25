@@ -3,7 +3,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'src/ui/screens/new_main_navigation.dart';
+import 'src/ui/screens/main_navigation_clean.dart';
 import 'src/ui/screens/first_time_setup_screen.dart';
 import 'src/ui/screens/login_screen.dart';
 import 'src/ui/theme/app_theme.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/permission_helper.dart';
-import 'new_main_navigation.dart';
+import 'main_navigation_clean.dart';
 
 class FirstTimeSetupScreen extends StatefulWidget {
   const FirstTimeSetupScreen({super.key});
