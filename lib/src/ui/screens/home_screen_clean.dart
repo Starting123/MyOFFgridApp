@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/modern_widgets.dart';
+import '../../providers/ui_integration_provider.dart';
 
 import 'sos_screen_clean.dart';
 import 'nearby_devices_screen_clean.dart';
@@ -21,11 +22,13 @@ class _HomeScreenCleanState extends ConsumerState<HomeScreenClean> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
-    // Mock data - in real app, this would come from providers
-    final bool isOnline = false; // Mock offline status
-    final int connectedDevices = 3;
-    final int unreadMessages = 2;
-    final int nearbySOSDevices = 1;
+    // Real data from providers
+    final connectionStatus = ref.watch(connectionStatusProvider);
+    final unreadCountAsync = ref.watch(unreadCountProvider);
+    final sosDevicesCountAsync = ref.watch(sosDevicesCountProvider);
+    
+    final bool isOnline = connectionStatus['isOnline'] ?? false;
+    final int connectedDevices = connectionStatus['connectedDevices'] ?? 0;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -46,12 +49,20 @@ class _HomeScreenCleanState extends ConsumerState<HomeScreenClean> {
               ),
               const SizedBox(height: 32),
               
-              // Quick Stats Cards
-              _buildQuickStats(
-                context,
-                nearbyDevices: connectedDevices,
-                unreadMessages: unreadMessages,
-                sosDevices: nearbySOSDevices,
+              // Quick Stats Cards - using real provider data
+              unreadCountAsync.when(
+                data: (unreadCount) => sosDevicesCountAsync.when(
+                  data: (sosCount) => _buildQuickStats(
+                    context,
+                    nearbyDevices: connectedDevices,
+                    unreadMessages: unreadCount,
+                    sosDevices: sosCount,
+                  ),
+                  loading: () => _buildQuickStats(context, nearbyDevices: connectedDevices, unreadMessages: 0, sosDevices: 0),
+                  error: (_, __) => _buildQuickStats(context, nearbyDevices: connectedDevices, unreadMessages: 0, sosDevices: 0),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => _buildQuickStats(context, nearbyDevices: connectedDevices, unreadMessages: 0, sosDevices: 0),
               ),
               const SizedBox(height: 32),
               

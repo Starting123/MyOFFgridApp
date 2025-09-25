@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/modern_widgets.dart';
 import '../../models/chat_models.dart';
+import '../../providers/ui_integration_provider.dart';
+import '../../services/local_database_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -13,43 +15,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  
-  // Mock chat data - in real app from providers
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      id: '1',
-      senderId: 'user1',
-      senderName: 'Rescue Team Alpha',
-      receiverId: 'current_user',
-      content: 'Emergency response team en route to your location',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-      status: MessageStatus.delivered,
-      type: MessageType.text,
-    ),
-    ChatMessage(
-      id: '2',
-      senderId: 'current_user',
-      senderName: 'You',
-      receiverId: 'user1',
-      content: 'Thank you! I\'m at the coordinates I shared earlier',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 3)),
-      status: MessageStatus.delivered,
-      type: MessageType.text,
-    ),
-    ChatMessage(
-      id: '3',
-      senderId: 'user1',
-      senderName: 'Rescue Team Alpha',
-      receiverId: 'current_user',
-      content: 'Stay where you are. ETA 10 minutes. Wave if you see us.',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
-      status: MessageStatus.delivered,
-      type: MessageType.text,
-    ),
-  ];
 
   final bool _isConnected = true; // Mock connection status
-  final int _nearbyDevices = 3; // Mock nearby device count
+  
   final String _currentUserId = 'current_user'; // Current user ID
   
   bool _isMessageFromCurrentUser(ChatMessage message) {
@@ -63,7 +31,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
@@ -78,37 +46,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       type: MessageType.text,
     );
 
-    setState(() {
-      _messages.add(newMessage);
-      _messageController.clear();
-    });
-
-    // Scroll to bottom
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+    _messageController.clear();
+    
+    try {
+      // Save message to database
+      final db = LocalDatabaseService();
+      await db.insertMessage(newMessage);
+      
+      // Scroll to bottom
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+      
+      // Invalidate provider to refresh UI
+      ref.invalidate(messagesProvider);
+    } catch (e) {
+      // Handle error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send message: $e')),
       );
-    });
-
-    // Simulate message status updates
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          final index = _messages.indexWhere((m) => m.id == newMessage.id);
-          if (index != -1) {
-            _messages[index] = newMessage.copyWith(status: MessageStatus.delivered);
-          }
-        });
-      }
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
+    // Real data from providers
+    final connectionStatus = ref.watch(connectionStatusProvider);
+    final messagesAsync = ref.watch(messagesProvider);
+    
+
+    
+    return messagesAsync.when(
+      data: (messages) => _buildChatScreen(context, theme, messages, connectionStatus),
+      loading: () => Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => _buildChatScreen(context, theme, <ChatMessage>[], connectionStatus),
+    );
+  }
+
+  Widget _buildChatScreen(BuildContext context, ThemeData theme, List<ChatMessage> messages, Map<String, dynamic> connectionStatus) {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
@@ -121,17 +105,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: GestureDetector(
-                onTap: () => _showConnectionDetails(context),
+                onTap: () => _showConnectionDetails(context, connectionStatus),
                 child: ModernWidgets.connectionStatusBanner(
-                  isOnline: _isConnected,
-                  connectedDevices: _nearbyDevices,
+                  isOnline: connectionStatus['isOnline'] ?? false,
+                  connectedDevices: connectionStatus['connectedDevices'] ?? 0,
                 ),
               ),
             ),
             
             // Chat messages
             Expanded(
-              child: _buildMessagesList(theme),
+              child: _buildMessagesList(messages, theme),
             ),
             
             // Message input
@@ -197,8 +181,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildMessagesList(ThemeData theme) {
-    if (_messages.isEmpty) {
+  Widget _buildMessagesList(List<ChatMessage> messages, ThemeData theme) {
+    if (messages.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -231,12 +215,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: _messages.length,
+      itemCount: messages.length,
       itemBuilder: (context, index) {
-        final message = _messages[index];
+        final message = messages[index];
         final isFirstInGroup = index == 0 || 
-          _messages[index - 1].senderId != message.senderId ||
-          message.timestamp.difference(_messages[index - 1].timestamp).inMinutes > 5;
+          messages[index - 1].senderId != message.senderId ||
+          message.timestamp.difference(messages[index - 1].timestamp).inMinutes > 5;
         
         return Padding(
           padding: EdgeInsets.only(
@@ -386,7 +370,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  void _showConnectionDetails(BuildContext context) {
+  void _showConnectionDetails(BuildContext context, Map<String, dynamic> connectionStatus) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -405,10 +389,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ListTile(
               leading: Icon(
                 Icons.wifi,
-                color: _isConnected ? Colors.green : Colors.red,
+                color: (connectionStatus['isOnline'] ?? false) ? Colors.green : Colors.red,
               ),
-              title: Text(_isConnected ? 'Connected' : 'Disconnected'),
-              subtitle: Text('$_nearbyDevices nearby devices'),
+              title: Text((connectionStatus['isOnline'] ?? false) ? 'Connected' : 'Disconnected'),
+              subtitle: Text('${connectionStatus['connectedDevices'] ?? 0} nearby devices'),
             ),
             ListTile(
               leading: const Icon(Icons.security),
@@ -533,11 +517,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                _messages.clear();
-              });
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                // Clear messages from database
+                final db = LocalDatabaseService();
+                await db.clearAllMessages();
+                
+                // Refresh the provider
+                ref.invalidate(messagesProvider);
+                
+                Navigator.pop(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to clear messages: $e')),
+                );
+              }
             },
             child: const Text('Clear'),
           ),

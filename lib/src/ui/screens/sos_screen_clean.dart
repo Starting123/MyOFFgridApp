@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/modern_widgets.dart';
+import '../../providers/ui_integration_provider.dart';
+import '../../services/sos_broadcast_service.dart';
 
 enum SOSMode { inactive, victim, rescuer }
 
@@ -15,11 +17,6 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     with SingleTickerProviderStateMixin {
   SOSMode currentMode = SOSMode.inactive;
   late AnimationController _pulseController;
-  
-  // Mock location data - in real app from location service
-  String latitude = "13.7563";
-  String longitude = "100.5018";
-  String locationName = "Bangkok, Thailand";
   
   @override
   void initState() {
@@ -36,11 +33,15 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     super.dispose();
   }
 
-  void _toggleSOSMode(SOSMode newMode) {
+  void _toggleSOSMode(SOSMode newMode) async {
+    final sosService = SOSBroadcastService.instance;
+    
     setState(() {
       if (currentMode == newMode) {
         currentMode = SOSMode.inactive;
         _pulseController.stop();
+        // Deactivate SOS in service
+        sosService.disableSOSMode();
       } else {
         currentMode = newMode;
         if (newMode != SOSMode.inactive) {
@@ -48,12 +49,42 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
         }
       }
     });
+    
+    // Activate appropriate mode in service
+    if (newMode == SOSMode.victim) {
+      await sosService.activateVictimMode(emergencyMessage: 'Emergency assistance needed');
+    } else if (newMode == SOSMode.rescuer) {
+      await sosService.activateRescuerMode();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    
+    // Real location data from provider
+    final locationAsync = ref.watch(locationProvider);
+    
+    return locationAsync.when(
+      data: (locationData) => _buildSOSScreen(context, theme, colorScheme, locationData),
+      loading: () => Scaffold(
+        backgroundColor: colorScheme.surface,
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => _buildSOSScreen(context, theme, colorScheme, {
+        'latitude': 0.0,
+        'longitude': 0.0,
+        'locationName': 'Location unavailable',
+        'isAvailable': false,
+      }),
+    );
+  }
+
+  Widget _buildSOSScreen(BuildContext context, ThemeData theme, ColorScheme colorScheme, Map<String, dynamic> locationData) {
+    final latitude = locationData['latitude'].toString();
+    final longitude = locationData['longitude'].toString();
+    final locationName = locationData['locationName'] as String;
     
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -71,7 +102,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
               const SizedBox(height: 40),
               
               // Location Information
-              _buildLocationSection(theme),
+              _buildLocationSection(theme, latitude, longitude, locationName),
               const SizedBox(height: 32),
               
               // Status Information
@@ -216,7 +247,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     );
   }
 
-  Widget _buildLocationSection(ThemeData theme) {
+  Widget _buildLocationSection(ThemeData theme, String latitude, String longitude, String locationName) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),

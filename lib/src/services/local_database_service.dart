@@ -504,6 +504,11 @@ class LocalDatabaseService {
     return 'current_device_id';
   }
 
+  Future<void> clearAllMessages() async {
+    final db = await database;
+    await db.delete('messages');
+  }
+
   Future<void> clearDatabase() async {
     final db = await database;
     await db.delete('messages');

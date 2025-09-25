@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/modern_widgets.dart';
 import '../../models/chat_models.dart';
+import '../../providers/ui_integration_provider.dart';
+import '../../services/nearby_service.dart';
 
 class NearbyDevicesScreen extends ConsumerStatefulWidget {
   const NearbyDevicesScreen({super.key});
@@ -13,47 +15,6 @@ class NearbyDevicesScreen extends ConsumerStatefulWidget {
 class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> 
     with SingleTickerProviderStateMixin {
   
-  // Mock nearby devices data - in real app from providers
-  final List<NearbyDevice> _nearbyDevices = [
-    NearbyDevice(
-      id: 'device1',
-      name: 'Emergency Team Alpha',
-      role: DeviceRole.rescuer,
-      isSOSActive: false,
-      isRescuerActive: true,
-      lastSeen: DateTime.now().subtract(const Duration(seconds: 30)),
-      latitude: 13.7565,
-      longitude: 100.5020,
-      signalStrength: 85,
-      isConnected: true,
-      connectionType: 'bluetooth',
-    ),
-    NearbyDevice(
-      id: 'device2',
-      name: 'Local Resident',
-      role: DeviceRole.normal,
-      isSOSActive: false,
-      isRescuerActive: false,
-      lastSeen: DateTime.now().subtract(const Duration(minutes: 2)),
-      signalStrength: 72,
-      isConnected: false,
-      connectionType: 'wifi_direct',
-    ),
-    NearbyDevice(
-      id: 'device3',
-      name: 'Tourist - Help Needed',
-      role: DeviceRole.sosUser,
-      isSOSActive: true,
-      isRescuerActive: false,
-      lastSeen: DateTime.now().subtract(const Duration(minutes: 1)),
-      latitude: 13.7560,
-      longitude: 100.5015,
-      signalStrength: 90,
-      isConnected: true,
-      connectionType: 'nearby',
-    ),
-  ];
-
   bool _isScanning = false;
   late AnimationController _scanController;
   
@@ -86,21 +47,34 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final connectionStatus = ref.watch(connectionStatusProvider);
+    final nearbyDevicesAsync = ref.watch(nearbyDevicesProvider);
     
+    return nearbyDevicesAsync.when(
+      data: (devices) => _buildNearbyDevicesScreen(context, theme, devices, connectionStatus),
+      loading: () => Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => _buildNearbyDevicesScreen(context, theme, <NearbyDevice>[], connectionStatus),
+    );
+  }
+
+  Widget _buildNearbyDevicesScreen(BuildContext context, ThemeData theme, List<NearbyDevice> devices, Map<String, dynamic> connectionStatus) {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            _buildHeader(theme),
+            _buildHeader(theme, connectionStatus, devices),
             
             // Scan controls
             _buildScanControls(theme),
             
             // Device list
             Expanded(
-              child: _buildDeviceList(theme),
+              child: _buildDeviceList(theme, devices),
             ),
           ],
         ),
@@ -108,7 +82,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
     );
   }
 
-  Widget _buildHeader(ThemeData theme) {
+  Widget _buildHeader(ThemeData theme, Map<String, dynamic> connectionStatus, List<NearbyDevice> devices) {
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -140,7 +114,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                       ),
                     ),
                     Text(
-                      '${_nearbyDevices.length} devices in range',
+                      '${devices.length} devices in range',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
@@ -251,8 +225,8 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
     );
   }
 
-  Widget _buildDeviceList(ThemeData theme) {
-    if (_nearbyDevices.isEmpty) {
+  Widget _buildDeviceList(ThemeData theme, List<NearbyDevice> devices) {
+    if (devices.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -285,9 +259,9 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
     }
 
     // Group devices by role for better organization
-    final sosDevices = _nearbyDevices.where((d) => d.role == DeviceRole.sosUser).toList();
-    final rescuerDevices = _nearbyDevices.where((d) => d.role == DeviceRole.rescuer).toList();
-    final normalDevices = _nearbyDevices.where((d) => d.role == DeviceRole.normal).toList();
+    final sosDevices = devices.where((d) => d.role == DeviceRole.sosUser).toList();
+    final rescuerDevices = devices.where((d) => d.role == DeviceRole.rescuer).toList();
+    final normalDevices = devices.where((d) => d.role == DeviceRole.normal).toList();
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -372,25 +346,23 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
     );
   }
 
-  void _connectToDevice(NearbyDevice device) {
-    // TODO: Implement device connection
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Connecting to ${device.name}...'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    
-    // Simulate connection
-    Future.delayed(const Duration(seconds: 2), () {
+  Future<void> _connectToDevice(NearbyDevice device) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connecting to ${device.name}...'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      
+      // Use the actual NearbyService to connect
+      final nearbyService = NearbyService.instance;
+      await nearbyService.connectToEndpoint(device.id);
+      
+      // Refresh the provider to get updated device list
+      ref.invalidate(nearbyDevicesProvider);
+      
       if (mounted) {
-        setState(() {
-          final index = _nearbyDevices.indexWhere((d) => d.id == device.id);
-          if (index != -1) {
-            _nearbyDevices[index] = device.copyWith(isConnected: true);
-          }
-        });
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Connected to ${device.name}'),
@@ -398,7 +370,16 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
           ),
         );
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to connect to ${device.name}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _startChatWith(NearbyDevice device) {
