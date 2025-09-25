@@ -16,12 +16,18 @@ class NearbyService {
   final String _serviceId = 'com.offgrid.sos';
   final StreamController<Map<String, dynamic>> _messageController = 
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _deviceFoundController = 
+      StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<String> _deviceLostController = 
+      StreamController<String>.broadcast();
   
   bool _isAdvertising = false;
   bool _isDiscovering = false;
   final Set<String> _connectedEndpoints = {};
 
   Stream<Map<String, dynamic>> get onMessage => _messageController.stream;
+  Stream<Map<String, dynamic>> get onDeviceFound => _deviceFoundController.stream;
+  Stream<String> get onDeviceLost => _deviceLostController.stream;
 
   // Initialize and request permissions
   Future<bool> initialize() async {
@@ -73,8 +79,9 @@ class NearbyService {
   // Start advertising as an SOS device
   Future<void> startAdvertising(String deviceName) async {
     if (_isAdvertising) {
-      debugPrint('⚠️ กำลังทำ advertising อยู่แล้ว');
-      return;
+      debugPrint('⚠️ กำลังทำ advertising อยู่แล้ว - หยุดก่อนแล้วเริ่มใหม่');
+      await stopAdvertising();
+      await Future.delayed(const Duration(milliseconds: 500));
     }
 
     try {
@@ -93,16 +100,23 @@ class NearbyService {
       _isAdvertising = true;
       debugPrint('✅ เริ่ม advertising สำเร็จ: $deviceName');
     } catch (e) {
-      debugPrint('❌ Error advertising: $e');
-      rethrow;
+      if (e.toString().contains('STATUS_ALREADY_ADVERTISING')) {
+        debugPrint('ℹ️ Service กำลัง advertising อยู่แล้ว - ใช้งานได้ปกติ');
+        _isAdvertising = true;
+        return; // ไม่ throw error เพราะการทำงานยังคงปกติ
+      } else {
+        debugPrint('❌ Error advertising: $e');
+        rethrow;
+      }
     }
   }
 
   // Start discovering nearby devices
   Future<void> startDiscovery() async {
     if (_isDiscovering) {
-      debugPrint('⚠️ กำลังทำ discovery อยู่แล้ว');
-      return;
+      debugPrint('⚠️ กำลังทำ discovery อยู่แล้ว - หยุดก่อนแล้วเริ่มใหม่');
+      await stopDiscovery();
+      await Future.delayed(const Duration(milliseconds: 500));
     }
 
     try {
@@ -123,8 +137,14 @@ class NearbyService {
       _isDiscovering = true;
       debugPrint('✅ เริ่มสแกนสำเร็จ');
     } catch (e) {
-      debugPrint('❌ Error discovering: $e');
-      rethrow;
+      if (e.toString().contains('STATUS_ALREADY_DISCOVERING')) {
+        debugPrint('ℹ️ Service กำลัง discovering อยู่แล้ว - ใช้งานได้ปกติ');
+        _isDiscovering = true;
+        return; // ไม่ throw error เพราะการทำงานยังคงปกติ
+      } else {
+        debugPrint('❌ Error discovering: $e');
+        rethrow;
+      }
     }
   }
 
@@ -168,15 +188,27 @@ class NearbyService {
   // Stop advertising
   Future<void> stopAdvertising() async {
     if (!_isAdvertising) return;
-    await _nearby.stopAdvertising();
-    _isAdvertising = false;
+    try {
+      await _nearby.stopAdvertising();
+      _isAdvertising = false;
+      debugPrint('🔴 หยุด advertising สำเร็จ');
+    } catch (e) {
+      debugPrint('⚠️ Error stopping advertising: $e');
+      _isAdvertising = false; // Reset state anyway
+    }
   }
 
   // Stop discovery
   Future<void> stopDiscovery() async {
     if (!_isDiscovering) return;
-    await _nearby.stopDiscovery();
-    _isDiscovering = false;
+    try {
+      await _nearby.stopDiscovery();
+      _isDiscovering = false;
+      debugPrint('🔴 หยุด discovery สำเร็จ');
+    } catch (e) {
+      debugPrint('⚠️ Error stopping discovery: $e');
+      _isDiscovering = false; // Reset state anyway
+    }
   }
 
   // Disconnect from all endpoints
@@ -219,6 +251,9 @@ class NearbyService {
     _connectedEndpoints.remove(endpointId);
     debugPrint('🔴 การเชื่อมต่อขาด: $endpointId');
     debugPrint('   Remaining connections: ${_connectedEndpoints.length}');
+    
+    // แจ้งไปที่ Provider ว่าอุปกรณ์หลุดการเชื่อมต่อ
+    _deviceLostController.add(endpointId);
   }
 
   void _onEndpointFound(String endpointId, String endpointName, String serviceId) {
@@ -226,14 +261,40 @@ class NearbyService {
     debugPrint('   Name: $endpointName');
     debugPrint('   Service: $serviceId');
     
+    // แจ้งไปที่ Provider ว่าพบอุปกรณ์
+    _deviceFoundController.add({
+      'endpointId': endpointId,
+      'endpointName': endpointName,
+      'serviceId': serviceId,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+    
+    // ตรวจสอบว่าเชื่อมต่ออยู่แล้วหรือไม่
+    if (_connectedEndpoints.contains(endpointId)) {
+      debugPrint('ℹ️ อุปกรณ์ $endpointId เชื่อมต่ออยู่แล้ว');
+      return;
+    }
+    
     // Request connection
-    _nearby.requestConnection(
-      'Device ${DateTime.now().millisecondsSinceEpoch}',
-      endpointId,
-      onConnectionInitiated: _onConnectionInitiated,
-      onConnectionResult: _onConnectionResult,
-      onDisconnected: _onDisconnected,
-    );
+    try {
+      _nearby.requestConnection(
+        'Device ${DateTime.now().millisecondsSinceEpoch}',
+        endpointId,
+        onConnectionInitiated: _onConnectionInitiated,
+        onConnectionResult: _onConnectionResult,
+        onDisconnected: _onDisconnected,
+      );
+    } catch (e) {
+      if (e.toString().contains('STATUS_ALREADY_CONNECTED_TO_ENDPOINT')) {
+        debugPrint('ℹ️ อุปกรณ์ $endpointId เชื่อมต่ออยู่แล้ว - ใช้งานได้ปกติ');
+        // เพิ่มเข้า connected list ถ้ายังไม่มี
+        if (!_connectedEndpoints.contains(endpointId)) {
+          _connectedEndpoints.add(endpointId);
+        }
+      } else {
+        debugPrint('❌ Error requesting connection to $endpointId: $e');
+      }
+    }
   }
 
   void _onPayloadReceived(String endpointId, Payload payload) {

@@ -48,6 +48,28 @@ class RealNearbyDevice {
       status: status,
     );
   }
+
+  RealNearbyDevice copyWith({
+    String? id,
+    String? name,
+    String? type,
+    double? distance,
+    int? signalStrength,
+    int? batteryLevel,
+    DateTime? lastSeen,
+    DeviceConnectionStatus? status,
+  }) {
+    return RealNearbyDevice(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      distance: distance ?? this.distance,
+      signalStrength: signalStrength ?? this.signalStrength,
+      batteryLevel: batteryLevel ?? this.batteryLevel,
+      lastSeen: lastSeen ?? this.lastSeen,
+      status: status ?? this.status,
+    );
+  }
 }
 
 enum DeviceConnectionStatus {
@@ -133,18 +155,49 @@ class RealSOSNotifier extends Notifier<bool> {
         return;
       }
       
-      // FIXED: Start advertising with clear SOS prefix
+      // FIXED: Start advertising with clear SOS prefix - Only use Nearby Service since P2P failed
       debugPrint('📡 เริ่ม advertising: SOS_$deviceName');
-      await _p2pService?.startAdvertising('SOS_$deviceName');
-      await _nearbyService?.startAdvertising('SOS_$deviceName');
+      if (nearbyInit) {
+        try {
+          await _nearbyService?.startAdvertising('SOS_$deviceName');
+          debugPrint('✅ Nearby advertising เริ่มสำเร็จ');
+        } catch (e) {
+          debugPrint('⚠️ Nearby advertising error (จะลองใหม่): $e');
+        }
+      }
+      
+      // Try P2P only if initialized
+      if (p2pInit) {
+        try {
+          await _p2pService?.startAdvertising('SOS_$deviceName');
+          debugPrint('✅ P2P advertising เริ่มสำเร็จ');
+        } catch (e) {
+          debugPrint('⚠️ P2P advertising error: $e');
+        }
+      }
       
       // Wait for advertising to establish
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 2));
       
       // ALSO start discovery to see other devices
       debugPrint('🔍 เริ่ม discovery เพื่อหาอุปกรณ์อื่น...');
-      await _p2pService?.startDiscovery();
-      await _nearbyService?.startDiscovery();
+      if (nearbyInit) {
+        try {
+          await _nearbyService?.startDiscovery();
+          debugPrint('✅ Nearby discovery เริ่มสำเร็จ');
+        } catch (e) {
+          debugPrint('⚠️ Nearby discovery error: $e');
+        }
+      }
+      
+      if (p2pInit) {
+        try {
+          await _p2pService?.startDiscovery();
+          debugPrint('✅ P2P discovery เริ่มสำเร็จ');
+        } catch (e) {
+          debugPrint('⚠️ P2P discovery error: $e');
+        }
+      }
       
       // Broadcast SOS signal
       final sosData = {
@@ -286,7 +339,7 @@ class RealNearbyDevicesNotifier extends Notifier<List<RealNearbyDevice>> {
   }
 
   void _initializeServiceListeners() {
-    // Listen for peer discovery
+    // Listen for peer discovery from P2P Service
     _peerFoundSubscription = _p2pService?.onPeerFound.listen((endpointId) {
       addOrUpdateDevice(RealNearbyDevice.fromEndpoint(
         endpointId: endpointId,
@@ -295,8 +348,42 @@ class RealNearbyDevicesNotifier extends Notifier<List<RealNearbyDevice>> {
       ));
     });
 
-    // Listen for peer lost
+    // Listen for peer lost from P2P Service
     _peerLostSubscription = _p2pService?.onPeerLost.listen((endpointId) {
+      removeDevice(endpointId);
+    });
+
+    // 🔥 NEW: Listen for device discovery from Nearby Service
+    _nearbyService?.onDeviceFound.listen((deviceData) {
+      final String endpointId = deviceData['endpointId'];
+      final String endpointName = deviceData['endpointName'];
+      
+      // แยกข้อมูลจาก device name
+      String deviceType = 'Unknown';
+      String actualName = endpointName;
+      
+      if (endpointName.startsWith('SOS_')) {
+        deviceType = 'SOS';
+        actualName = endpointName.substring(4); // ตัด 'SOS_' ออก
+      } else if (endpointName.startsWith('Rescuer_')) {
+        deviceType = 'Rescuer';
+        actualName = endpointName.substring(8); // ตัด 'Rescuer_' ออก
+      }
+      
+      final device = RealNearbyDevice.fromEndpoint(
+        endpointId: endpointId,
+        deviceName: actualName,
+        deviceType: deviceType,
+        status: DeviceConnectionStatus.discovered,
+      );
+      
+      debugPrint('📱 เพิ่มอุปกรณ์ใน UI: $actualName ($deviceType)');
+      addOrUpdateDevice(device);
+    });
+
+    // 🔥 NEW: Listen for device lost from Nearby Service
+    _nearbyService?.onDeviceLost.listen((endpointId) {
+      debugPrint('📱 ลบอุปกรณ์จาก UI: $endpointId');
       removeDevice(endpointId);
     });
 
@@ -317,6 +404,33 @@ class RealNearbyDevicesNotifier extends Notifier<List<RealNearbyDevice>> {
           },
         );
         addOrUpdateDevice(device);
+      }
+    });
+
+    // 🔥 NEW: Listen for messages from Nearby Service
+    _nearbyService?.onMessage.listen((data) {
+      debugPrint('📨 ได้รับข้อความใน Provider: $data');
+      
+      // อัปเดต device status ตามข้อความที่ได้รับ
+      if (data.containsKey('deviceName')) {
+        final existingDevice = state.firstWhere(
+          (device) => device.name == data['deviceName'],
+          orElse: () => RealNearbyDevice.fromEndpoint(
+            endpointId: data['deviceId'] ?? 'unknown',
+            deviceName: data['deviceName'],
+            deviceType: data['deviceType'] ?? 'Unknown',
+            status: DeviceConnectionStatus.connected,
+          ),
+        );
+        
+        // อัปเดต status
+        final updatedDevice = existingDevice.copyWith(
+          status: data['type'] == 'sos' 
+              ? DeviceConnectionStatus.sosActive 
+              : DeviceConnectionStatus.connected,
+        );
+        
+        addOrUpdateDevice(updatedDevice);
       }
     });
   }

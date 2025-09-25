@@ -33,6 +33,8 @@ class P2PService {
 
   Future<bool> initialize() async {
     try {
+      debugPrint('🔄 P2P Service: กำลังขอ permissions...');
+      
       final permissions = await [
         Permission.location,
         Permission.bluetooth,
@@ -44,13 +46,21 @@ class P2PService {
 
       bool allGranted = permissions.values.every((status) => status.isGranted);
       if (!allGranted) {
-        debugPrint('Not all permissions were granted');
+        debugPrint('❌ P2P Service: ไม่ได้รับ permissions ทั้งหมด');
+        permissions.forEach((permission, status) {
+          if (!status.isGranted) {
+            debugPrint('❌ ${permission.toString()}: ${status.toString()}');
+          }
+        });
         return false;
       }
+      
+      debugPrint('✅ P2P Service: ได้รับ permissions ครบแล้ว');
 
+      debugPrint('✅ P2P Service initialized สำเร็จ');
       return true;
     } catch (e) {
-      debugPrint('Error initializing P2PService: $e');
+      debugPrint('❌ Error initializing P2PService: $e');
       return false;
     }
   }

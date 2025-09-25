@@ -45,7 +45,10 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
   void _stopScanning() async {
     if (!_isScanning) return;
     
-    setState(() => _isScanning = false);
+    // ตรวจสอบว่า widget ยังคงอยู่หรือไม่ก่อนที่จะเรียก setState
+    if (mounted) {
+      setState(() => _isScanning = false);
+    }
     
     final devicesNotifier = ref.read(realNearbyDevicesProvider.notifier);
     await devicesNotifier.stopScanning();
@@ -209,49 +212,57 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
             ),
           ],
         ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) => _handleDeviceAction(device, value),
-          itemBuilder: (context) => [
-            if (device.status != DeviceConnectionStatus.connected)
-              const PopupMenuItem(
-                value: 'connect',
-                child: Row(
-                  children: [
-                    Icon(Icons.link),
-                    SizedBox(width: 8),
-                    Text('เชื่อมต่อ'),
-                  ],
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ปุ่มแชทแยกออกมาให้เห็นชัดเจน
+            ElevatedButton.icon(
+              onPressed: () => _goToChat(device),
+              icon: const Icon(Icons.chat, size: 16),
+              label: const Text('แชท'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(60, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+            const SizedBox(width: 8),
+            PopupMenuButton<String>(
+              onSelected: (value) => _handleDeviceAction(device, value),
+              itemBuilder: (context) => [
+                if (device.status != DeviceConnectionStatus.connected)
+                  const PopupMenuItem(
+                    value: 'connect',
+                    child: Row(
+                      children: [
+                        Icon(Icons.link),
+                        SizedBox(width: 8),
+                        Text('เชื่อมต่อ'),
+                      ],
+                    ),
+                  ),
+                const PopupMenuItem(
+                  value: 'location',
+                  child: Row(
+                    children: [
+                      Icon(Icons.location_on),
+                      SizedBox(width: 8),
+                      Text('ดูตำแหน่ง'),
+                    ],
+                  ),
                 ),
-              ),
-            const PopupMenuItem(
-              value: 'chat',
-              child: Row(
-                children: [
-                  Icon(Icons.chat),
-                  SizedBox(width: 8),
-                  Text('แชท'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'location',
-              child: Row(
-                children: [
-                  Icon(Icons.location_on),
-                  SizedBox(width: 8),
-                  Text('ดูตำแหน่ง'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'info',
-              child: Row(
-                children: [
-                  Icon(Icons.info),
-                  SizedBox(width: 8),
-                  Text('รายละเอียด'),
-                ],
-              ),
+                const PopupMenuItem(
+                  value: 'info',
+                  child: Row(
+                    children: [
+                      Icon(Icons.info),
+                      SizedBox(width: 8),
+                      Text('รายละเอียด'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -345,21 +356,23 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
     }
   }
 
+  void _goToChat(RealNearbyDevice device) {
+    // Navigate to chat screen with this device
+    Navigator.pushNamed(
+      context,
+      '/chat',
+      arguments: {
+        'deviceId': device.id,
+        'deviceName': device.name,
+        'deviceType': device.type,
+      },
+    );
+  }
+
   void _handleDeviceAction(RealNearbyDevice device, String action) {
     switch (action) {
       case 'connect':
         _connectToDevice(device);
-        break;
-      case 'chat':
-        // Navigate to chat screen with this device
-        Navigator.pushNamed(
-          context,
-          '/chat',
-          arguments: {
-            'deviceId': device.id,
-            'deviceName': device.name,
-          },
-        );
         break;
       case 'location':
         ScaffoldMessenger.of(context).showSnackBar(
@@ -604,8 +617,11 @@ class _RealDeviceListScreenState extends ConsumerState<RealDeviceListScreen> {
 
   @override
   void dispose() {
+    // หยุดการสแกนโดยไม่เรียก setState เพราะ widget กำลังจะถูก dispose
     if (_isScanning) {
-      _stopScanning();
+      _isScanning = false;
+      final devicesNotifier = ref.read(realNearbyDevicesProvider.notifier);
+      devicesNotifier.stopScanning();
     }
     super.dispose();
   }
