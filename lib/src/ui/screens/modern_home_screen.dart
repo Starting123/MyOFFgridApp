@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../../providers/real_device_providers.dart';
+import '../../utils/permission_helper.dart';
+import 'modern_settings_screen.dart';
+import 'modern_devices_screen.dart';
+import 'modern_chat_screen.dart';
 
 class ModernHomeScreen extends ConsumerStatefulWidget {
   const ModernHomeScreen({super.key});
@@ -138,12 +142,19 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
                   ),
                 ),
                 userInfo.when(
-                  data: (info) => Text(
-                    'สวัสดี, ${info['name']}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white.withOpacity(0.7),
-                    ),
+                  data: (info) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'สวัสดี, ${info['name']}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      PermissionHelper.buildPermissionStatus(context),
+                    ],
                   ),
                   loading: () => Text(
                     'กำลังโหลด...',
@@ -165,7 +176,13 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
           ),
           IconButton(
             onPressed: () {
-              // Open settings
+              // Navigate to Settings screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ModernSettingsScreen(),
+                ),
+              );
             },
             icon: const Icon(
               Icons.settings_outlined,
@@ -358,7 +375,12 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
         label: 'ส่งข้อความ',
         color: const Color(0xFF4CAF50),
         onTap: () {
-          // Navigate to chat
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ModernChatScreen(),
+            ),
+          );
         },
       ),
       QuickAction(
@@ -366,7 +388,12 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
         label: 'ค้นหาอุปกรณ์',
         color: const Color(0xFF9C27B0),
         onTap: () {
-          // Navigate to devices
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ModernDevicesScreen(),
+            ),
+          );
         },
       ),
       QuickAction(
@@ -374,7 +401,12 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
         label: 'ตั้งค่า',
         color: const Color(0xFFFF9800),
         onTap: () {
-          // Navigate to settings
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ModernSettingsScreen(),
+            ),
+          );
         },
       ),
     ];

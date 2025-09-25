@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../utils/permission_helper.dart';
 
 class ModernSettingsScreen extends ConsumerStatefulWidget {
   const ModernSettingsScreen({super.key});
@@ -11,6 +13,8 @@ class ModernSettingsScreen extends ConsumerStatefulWidget {
 
 class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
   final TextEditingController _deviceNameController = TextEditingController();
+  final TextEditingController _userNameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   bool _autoConnectEnabled = true;
   bool _notificationsEnabled = true;
   bool _vibrationEnabled = true;
@@ -21,11 +25,15 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
   void initState() {
     super.initState();
     _deviceNameController.text = 'My Device';
+    _userNameController.text = 'ผู้ใช้';
+    _phoneController.text = '+66 80 123 4567';
   }
 
   @override
   void dispose() {
     _deviceNameController.dispose();
+    _userNameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -583,12 +591,88 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
     );
   }
 
-  void _saveSettings() {
+  void _saveSettings() async {
     HapticFeedback.lightImpact();
+    
+    // Validate inputs
+    if (_userNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('กรุณาใส่ชื่อผู้ใช้'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+
+    if (_deviceNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('กรุณาใส่ชื่ออุปกรณ์'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+    
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF00D4FF),
+        ),
+      ),
+    );
+
+    // Simulate saving process
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    // Close loading dialog
+    Navigator.pop(context);
+    
+    // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Settings saved successfully'),
-        backgroundColor: Color(0xFF4CAF50),
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(
+              Icons.check_circle,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'บันทึกการตั้งค่าสำเร็จ',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    'ชื่อ: ${_userNameController.text} | อุปกรณ์: ${_deviceNameController.text}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
@@ -711,13 +795,14 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
       _buildTextFieldSetting(
         'ชื่อผู้ใช้',
         'ชื่อที่จะแสดงให้ผู้อื่นเห็น',
-        _deviceNameController, // TODO: Add separate user name controller
+        _userNameController,
         Icons.person,
       ),
       const Divider(color: Colors.white10, height: 32),
-      _buildInfoSetting(
+      _buildTextFieldSetting(
         'หมายเลขโทรศัพท์',
-        '+66 80 123 4567', // TODO: Make this editable
+        'หมายเลขติดต่อในกรณีฉุกเฉิน',
+        _phoneController,
         Icons.phone,
       ),
       const Divider(color: Colors.white10, height: 32),
@@ -732,6 +817,13 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
 
   Widget _buildSecuritySettings() {
     return _buildSettingsCard([
+      _buildActionSetting(
+        'จัดการสิทธิ์แอป',
+        'ตรวจสอบและปรับแต่งสิทธิ์การเข้าถึง',
+        Icons.admin_panel_settings,
+        () => _managePermissions(),
+      ),
+      const Divider(color: Colors.white10, height: 32),
       _buildActionSetting(
         'สร้างกุญแจใหม่',
         'สร้างกุญแจเข้ารหัสใหม่',
@@ -759,6 +851,22 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
         () => _clearAllData(),
       ),
     ]);
+  }
+
+  void _managePermissions() async {
+    await PermissionHelper.showPermissionDialog(
+      context,
+      title: 'สิทธิ์การเข้าถึง',
+      message: 'แอปต้องการสิทธิ์เหล่านี้เพื่อการทำงานที่เหมาะสม',
+      permissions: [
+        Permission.location,
+        Permission.locationAlways,
+        Permission.storage,
+        Permission.bluetoothConnect,
+        Permission.nearbyWifiDevices,
+      ],
+      onSettingsPressed: () => openAppSettings(),
+    );
   }
 
   void _changeProfilePicture() {

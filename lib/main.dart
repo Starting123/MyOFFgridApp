@@ -23,64 +23,82 @@ void main() async {
 
 /// Request all necessary permissions for the app
 Future<void> _requestPermissions() async {
-  // Critical permissions for Nearby Connections
-  final criticalPermissions = [
-    Permission.location, // This covers ACCESS_COARSE_LOCATION
-    Permission.locationWhenInUse,
-    Permission.locationAlways,
+  // Essential permissions for Nearby Connections (excluding problematic ones)
+  final essentialPermissions = [
+    Permission.location, // ACCESS_COARSE_LOCATION & ACCESS_FINE_LOCATION
+    Permission.locationWhenInUse, // Essential for Nearby Connections
   ];
   
-  // Request critical permissions first and ensure they're granted
-  for (final permission in criticalPermissions) {
+  // Request essential permissions first
+  for (final permission in essentialPermissions) {
     var status = await permission.status;
     if (!status.isGranted) {
       status = await permission.request();
-      if (!status.isGranted) {
-        debugPrint('⚠️ CRITICAL: ${permission.toString()} not granted: $status');
-        // Show dialog to user explaining importance
+      if (status.isGranted) {
+        debugPrint('✅ ESSENTIAL: ${permission.toString()} granted');
       } else {
-        debugPrint('✅ CRITICAL: ${permission.toString()} granted');
+        debugPrint('⚠️ ESSENTIAL: ${permission.toString()} not granted: $status');
       }
+    } else {
+      debugPrint('✅ ESSENTIAL: ${permission.toString()} already granted');
     }
   }
   
-  // Other permissions
-  final permissions = [
-    Permission.storage,
+  // Handle locationAlways separately (optional, don't block app if denied)
+  var backgroundLocationStatus = await Permission.locationAlways.status;
+  if (!backgroundLocationStatus.isGranted && backgroundLocationStatus != PermissionStatus.permanentlyDenied) {
+    backgroundLocationStatus = await Permission.locationAlways.request();
+    if (backgroundLocationStatus.isGranted) {
+      debugPrint('✅ BACKGROUND: Permission.locationAlways granted');
+    } else {
+      debugPrint('⚠️ BACKGROUND: Permission.locationAlways not granted: $backgroundLocationStatus');
+      debugPrint('ℹ️ App can still work without background location');
+    }
+  } else if (backgroundLocationStatus == PermissionStatus.permanentlyDenied) {
+    debugPrint('! CRITICAL: Permission.locationAlways not granted: $backgroundLocationStatus');
+    debugPrint('ℹ️ Background location permanently denied - SOS may have limited functionality');
+  }
+  
+  // Optional permissions (nice to have but not critical)
+  final optionalPermissions = [
     Permission.camera,
     Permission.microphone,
   ];
 
-  // Add Android-specific permissions
-  if (await Permission.bluetoothConnect.status != PermissionStatus.granted) {
-    permissions.addAll([
-      Permission.bluetoothConnect,
-      Permission.bluetoothScan,
-      Permission.bluetoothAdvertise,
-    ]);
-  }
-
-  if (await Permission.nearbyWifiDevices.status != PermissionStatus.granted) {
-    permissions.add(Permission.nearbyWifiDevices);
-  }
-
-  // Request all permissions
-  final statuses = await permissions.request();
-  
-  // Double-check location permissions specifically for Nearby Connections
-  if (await Permission.location.status != PermissionStatus.granted) {
-    debugPrint('🔥 CRITICAL: Location permission still not granted, requesting again...');
-    await Permission.location.request();
-    await Permission.locationWhenInUse.request();
-  }
-  
-  // Log permission results
-  for (final permission in permissions) {
-    final status = statuses[permission];
-    if (status != PermissionStatus.granted) {
-      debugPrint('⚠️ Permission ${permission.toString()} not granted: $status');
+  // Handle storage permission separately for Android 13+ compatibility
+  var storageStatus = await Permission.storage.status;
+  if (!storageStatus.isGranted && storageStatus != PermissionStatus.permanentlyDenied) {
+    storageStatus = await Permission.storage.request();
+    if (storageStatus.isGranted) {
+      debugPrint('✅ Permission Permission.storage granted');
     } else {
+      debugPrint('! Permission Permission.storage not granted: $storageStatus');
+      debugPrint('ℹ️ App can work without storage permission using scoped storage');
+    }
+  } else {
+    debugPrint('! Permission Permission.storage not granted: $storageStatus');
+  }
+
+  // Add Android-specific Bluetooth permissions
+  final bluetoothPermissions = [
+    Permission.bluetoothConnect,
+    Permission.bluetoothScan,
+    Permission.bluetoothAdvertise,
+  ];
+
+  final nearbyPermissions = [Permission.nearbyWifiDevices];
+
+  // Request optional permissions
+  final allOptionalPermissions = [...optionalPermissions, ...bluetoothPermissions, ...nearbyPermissions];
+  final statuses = await allOptionalPermissions.request();
+  
+  // Log all permission results
+  for (final permission in allOptionalPermissions) {
+    final status = statuses[permission];
+    if (status == PermissionStatus.granted) {
       debugPrint('✅ Permission ${permission.toString()} granted');
+    } else {
+      debugPrint('! Permission ${permission.toString()} not granted: $status');
     }
   }
 }
@@ -92,10 +110,52 @@ Future<void> _initializeServices() async {
     final nearbyInitialized = await NearbyService.instance.initialize();
     debugPrint(nearbyInitialized ? '✅ Nearby Service initialized' : '❌ Nearby Service failed');
     
+    // Show permission summary
+    await _showPermissionSummary();
+    
     debugPrint('✅ All services initialized');
     
   } catch (e) {
     debugPrint('❌ Service initialization error: $e');
+  }
+}
+
+/// Show summary of permission status
+Future<void> _showPermissionSummary() async {
+  debugPrint('📊 Permission Summary:');
+  
+  final permissions = {
+    'Location (Essential)': Permission.location,
+    'Location When In Use': Permission.locationWhenInUse,  
+    'Background Location': Permission.locationAlways,
+    'Storage': Permission.storage,
+    'Camera': Permission.camera,
+    'Microphone': Permission.microphone,
+    'Bluetooth Connect': Permission.bluetoothConnect,
+    'Bluetooth Scan': Permission.bluetoothScan,
+    'Bluetooth Advertise': Permission.bluetoothAdvertise,
+    'Nearby WiFi Devices': Permission.nearbyWifiDevices,
+  };
+  
+  int granted = 0;
+  int total = permissions.length;
+  
+  for (final entry in permissions.entries) {
+    final status = await entry.value.status;
+    final icon = status.isGranted ? '✅' : 
+                 status == PermissionStatus.permanentlyDenied ? '🚫' : '⚠️';
+    debugPrint('$icon ${entry.key}: $status');
+    if (status.isGranted) granted++;
+  }
+  
+  debugPrint('📈 Permissions: $granted/$total granted');
+  
+  if (granted >= 4) { // Essential permissions
+    debugPrint('🟢 App Status: Ready - Core features available');
+  } else if (granted >= 2) {
+    debugPrint('🟡 App Status: Limited - Some features may not work');
+  } else {
+    debugPrint('🔴 App Status: Degraded - Many features unavailable');
   }
 }
 

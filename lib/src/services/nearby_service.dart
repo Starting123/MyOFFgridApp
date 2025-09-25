@@ -52,8 +52,9 @@ class NearbyService {
       }
       
       if (!allLocationGranted) {
-        debugPrint('❌ Location permissions ไม่ครบถ้วน - Nearby Connections จะไม่ทำงาน');
-        // Continue anyway to test other features
+        debugPrint('⚠️ Location permissions ไม่ครบถ้วน - Nearby Connections จะทำงานไม่เต็มประสิทธิภาพ');
+        debugPrint('ℹ️ แอปยังสามารถทำงานโหมดออฟไลน์ได้ แต่การค้นหาอุปกรณ์อาจจำกัด');
+        // Continue anyway - app can still work with limited functionality
       }
       
       if (Platform.isAndroid) {
@@ -63,11 +64,13 @@ class NearbyService {
         final bluetoothAdvertise = await Permission.bluetoothAdvertise.request();
         
         if (!bluetoothConnect.isGranted || !bluetoothScan.isGranted || !bluetoothAdvertise.isGranted) {
-          debugPrint('❌ Bluetooth permissions ถูกปฏิเสธ');
+          debugPrint('⚠️ Bluetooth permissions ไม่ครับถ้วน');
           debugPrint('Connect: ${bluetoothConnect.isGranted}, Scan: ${bluetoothScan.isGranted}, Advertise: ${bluetoothAdvertise.isGranted}');
-          return false;
+          debugPrint('ℹ️ Bluetooth features อาจทำงานจำกัด - ลองใช้ WiFi Direct แทน');
+          // Don't return false - try to continue with WiFi Direct
+        } else {
+          debugPrint('✅ Bluetooth permissions อนุมัติแล้ว');
         }
-        debugPrint('✅ Bluetooth permissions อนุมัติแล้ว');
         
         // Request nearby WiFi devices permission for Android 13+
         try {
