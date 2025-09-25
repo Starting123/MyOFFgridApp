@@ -28,6 +28,7 @@ class NearbyService {
   Stream<Map<String, dynamic>> get onMessage => _messageController.stream;
   Stream<Map<String, dynamic>> get onDeviceFound => _deviceFoundController.stream;
   Stream<String> get onDeviceLost => _deviceLostController.stream;
+  List<String> get connectedEndpoints => List.unmodifiable(_connectedEndpoints);
 
   // Initialize and request permissions
   Future<bool> initialize() async {
@@ -185,6 +186,43 @@ class NearbyService {
     }
   }
 
+  // Send a general message to all connected endpoints
+  Future<void> sendMessage(String message, {String type = 'chat'}) async {
+    final payload = {
+      'type': type,
+      'message': message,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    final jsonData = jsonEncode(payload);
+    final bytes = Uint8List.fromList(utf8.encode(jsonData));
+
+    debugPrint('💬 กำลังส่งข้อความ...');
+    debugPrint('   Message: $message');
+    debugPrint('   Type: $type');
+    debugPrint('   Connected Endpoints: ${_connectedEndpoints.length}');
+    debugPrint('   Endpoint IDs: $_connectedEndpoints');
+
+    if (_connectedEndpoints.isEmpty) {
+      debugPrint('⚠️ ไม่มีอุปกรณ์เชื่อมต่อ - ข้อความไม่สามารถส่งได้');
+      return;
+    }
+
+    for (final endpointId in _connectedEndpoints) {
+      try {
+        await _nearby.sendBytesPayload(endpointId, bytes);
+        debugPrint('✅ ส่งข้อความไปยัง $endpointId สำเร็จ');
+      } catch (e) {
+        debugPrint('❌ Error sending message to endpoint $endpointId: $e');
+      }
+    }
+  }
+
+  // Get stream for received messages
+  Stream<String> get onMessageReceived => onMessage
+      .where((data) => data['type'] == 'chat' || data['type'] == 'sos')
+      .map((data) => data['message'] as String);
+
   // Stop advertising
   Future<void> stopAdvertising() async {
     if (!_isAdvertising) return;
@@ -302,17 +340,23 @@ class NearbyService {
       final String str = String.fromCharCodes(payload.bytes!);
       debugPrint('📨 ได้รับข้อความจาก $endpointId');
       debugPrint('   Content: $str');
+      debugPrint('   Current connected endpoints: $_connectedEndpoints');
       
       try {
         final data = jsonDecode(str) as Map<String, dynamic>;
+        debugPrint('   Parsed data: $data');
         
         // Check if it's SOS message
         if (data['type'] == 'sos') {
           debugPrint('🆘 ได้รับสัญญาณ SOS!');
           debugPrint('   Device: ${data['deviceName']}');
           debugPrint('   Message: ${data['message']}');
+        } else if (data['type'] == 'chat') {
+          debugPrint('💬 ได้รับข้อความแชท!');
+          debugPrint('   Message: ${data['message']}');
         }
         
+        debugPrint('🔄 Adding to message stream...');
         _messageController.add(data);
       } catch (e) {
         debugPrint('❌ Error parsing payload: $e');

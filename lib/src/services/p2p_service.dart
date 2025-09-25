@@ -35,27 +35,46 @@ class P2PService {
     try {
       debugPrint('🔄 P2P Service: กำลังขอ permissions...');
       
-      final permissions = await [
-        Permission.location,
-        Permission.bluetooth,
-        Permission.bluetoothAdvertise,
-        Permission.bluetoothConnect,
-        Permission.bluetoothScan,
-        if (Platform.isAndroid) Permission.nearbyWifiDevices,
-      ].request();
-
-      bool allGranted = permissions.values.every((status) => status.isGranted);
-      if (!allGranted) {
-        debugPrint('❌ P2P Service: ไม่ได้รับ permissions ทั้งหมด');
-        permissions.forEach((permission, status) {
-          if (!status.isGranted) {
-            debugPrint('❌ ${permission.toString()}: ${status.toString()}');
-          }
-        });
-        return false;
-      }
+      // ขอ permissions ตาม Android version
+      final permissions = <Permission>[];
+      permissions.add(Permission.location);
       
-      debugPrint('✅ P2P Service: ได้รับ permissions ครบแล้ว');
+      if (Platform.isAndroid) {
+        // Android 12+ ใช้ Bluetooth permissions ใหม่
+        permissions.addAll([
+          Permission.bluetoothAdvertise,
+          Permission.bluetoothConnect, 
+          Permission.bluetoothScan,
+          Permission.nearbyWifiDevices,
+        ]);
+      }
+
+      final permissionStatuses = await permissions.request();
+
+      // ตรวจสอบเฉพาะ permissions สำคัญ
+      final criticalPermissions = [
+        Permission.location,
+        if (Platform.isAndroid) ...[
+          Permission.bluetoothConnect,
+          Permission.bluetoothScan,
+        ]
+      ];
+
+      bool criticalGranted = true;
+      for (final permission in criticalPermissions) {
+        final status = permissionStatuses[permission];
+        if (status == null || !status.isGranted) {
+          debugPrint('❌ ${permission.toString()}: ${status.toString()}');
+          criticalGranted = false;
+        }
+      }
+
+      if (!criticalGranted) {
+        debugPrint('⚠️ P2P Service: permissions สำคัญไม่ครบ แต่จะลองทำงานต่อ');
+        // ไม่ return false เพื่อให้ Nearby Service ทำงานได้
+      } else {
+        debugPrint('✅ P2P Service: ได้รับ permissions สำคัญครบแล้ว');
+      }
 
       debugPrint('✅ P2P Service initialized สำเร็จ');
       return true;

@@ -199,6 +199,10 @@ class RealSOSNotifier extends Notifier<bool> {
         }
       }
       
+      // 🔥 NEW: เริ่ม device scanning ใน UI ด้วย
+      debugPrint('📱 เริ่ม device scanning สำหรับ SOS...');
+      ref.read(realNearbyDevicesProvider.notifier).startScanning();
+      
       // Broadcast SOS signal
       final sosData = {
         'type': 'sos',

@@ -244,6 +244,39 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
 
+            // Status and Instructions
+            if (sosActive || rescuerMode)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.blue.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        sosActive 
+                          ? '📱 กดปุ่ม "อุปกรณ์" ด้านบนเพื่อดูรายการผู้ช่วยเหลือ และเข้าแชท'
+                          : '📱 กดปุ่ม "อุปกรณ์" ด้านบนเพื่อดูรายการผู้ขอความช่วยเหลือ',
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // Quick Actions
             Row(
               children: [
