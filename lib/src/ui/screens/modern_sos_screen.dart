@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
-import '../../providers/real_device_providers.dart';
+import '../../providers/main_providers.dart';
+import '../../models/chat_models.dart';
 
 class ModernSOSScreen extends ConsumerStatefulWidget {
   const ModernSOSScreen({super.key});
@@ -40,8 +41,8 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
 
   @override
   Widget build(BuildContext context) {
-    final sosState = ref.watch(realSOSActiveProvider);
-    final nearbyDevices = ref.watch(realNearbyDevicesProvider);
+    final sosState = ref.watch(sosActiveModeProvider);
+    final nearbyDevices = ref.watch(nearbyDevicesProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
@@ -181,7 +182,12 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
     return GestureDetector(
       onTap: () async {
         HapticFeedback.heavyImpact();
-        await ref.read(realSOSActiveProvider.notifier).toggle();
+        final isCurrentlyActive = ref.read(sosActiveModeProvider);
+        if (isCurrentlyActive) {
+          AppActions.deactivateSOS(ref);
+        } else {
+          AppActions.activateSOS(ref);
+        }
       },
       child: AnimatedBuilder(
         animation: _emergencyAnimation,
@@ -257,7 +263,7 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
     );
   }
 
-  Widget _buildDeviceStatus(List<RealNearbyDevice> devices) {
+  Widget _buildDeviceStatus(List<NearbyDevice> devices) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -346,7 +352,7 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
   }
 
   Widget _buildModeSelection() {
-    final rescuerMode = ref.watch(realRescuerModeProvider);
+    final rescuerMode = ref.watch(rescuerActiveModeProvider);
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -384,7 +390,14 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
                   Icons.warning,
                   const Color(0xFFFF6B6B),
                   !rescuerMode,
-                  () => ref.read(realRescuerModeProvider.notifier).toggle(),
+                  () {
+                    final isCurrentlyActive = ref.read(rescuerActiveModeProvider);
+                    if (isCurrentlyActive) {
+                      AppActions.deactivateRescuer(ref);
+                    } else {
+                      AppActions.activateRescuer(ref);
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 16),
@@ -395,7 +408,14 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
                   Icons.healing,
                   const Color(0xFF2196F3),
                   rescuerMode,
-                  () => ref.read(realRescuerModeProvider.notifier).toggle(),
+                  () {
+                    final isCurrentlyActive = ref.read(rescuerActiveModeProvider);
+                    if (isCurrentlyActive) {
+                      AppActions.deactivateRescuer(ref);
+                    } else {
+                      AppActions.activateRescuer(ref);
+                    }
+                  },
                 ),
               ),
             ],
@@ -454,7 +474,7 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
   }
 
   Widget _buildInstructions(bool isActive) {
-    final rescuerMode = ref.watch(realRescuerModeProvider);
+    final rescuerMode = ref.watch(rescuerActiveModeProvider);
     
     return Container(
       padding: const EdgeInsets.all(16),

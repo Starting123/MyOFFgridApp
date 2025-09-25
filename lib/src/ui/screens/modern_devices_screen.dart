@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
-import '../../providers/real_device_providers.dart';
+import '../../providers/main_providers.dart';
+import '../../models/chat_models.dart';
 import 'modern_chat_screen.dart';
 
 class ModernDevicesScreen extends ConsumerStatefulWidget {
@@ -41,7 +42,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
 
   @override
   Widget build(BuildContext context) {
-    final nearbyDevices = ref.watch(realNearbyDevicesProvider);
+    final nearbyDevices = ref.watch(nearbyDevicesProvider);
     final rescuerMode = ref.watch(realRescuerModeProvider);
 
     return Scaffold(
@@ -212,7 +213,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
     );
   }
 
-  Widget _buildDevicesList(List<RealNearbyDevice> devices) {
+  Widget _buildDevicesList(List<NearbyDevice> devices) {
     if (devices.isEmpty) {
       return Center(
         child: Column(
@@ -268,7 +269,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
     );
   }
 
-  Widget _buildDeviceCard(RealNearbyDevice device) {
+  Widget _buildDeviceCard(NearbyDevice device) {
     final rescuerMode = ref.watch(realRescuerModeProvider);
     
     // Simulate device role information (in real app, this would come from device data)
@@ -382,8 +383,8 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
                         ),
                         const SizedBox(width: 8),
                         _buildStatusChip(
-                          device.status == DeviceConnectionStatus.connected ? 'Connected' : 'Available',
-                          device.status == DeviceConnectionStatus.connected ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                          device.isConnected ? 'Connected' : 'Available',
+                          device.isConnected ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
                         ),
                       ],
                     ),
@@ -405,11 +406,11 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
                   IconButton(
                     onPressed: () => _connectToDevice(device),
                     icon: Icon(
-                      device.status == DeviceConnectionStatus.connected ? Icons.link_off : Icons.link,
-                      color: device.status == DeviceConnectionStatus.connected ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50),
+                      device.isConnected ? Icons.link_off : Icons.link,
+                      color: device.isConnected ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50),
                       size: 20,
                     ),
-                    tooltip: device.status == DeviceConnectionStatus.connected ? 'Disconnect' : 'Connect',
+                    tooltip: device.isConnected ? 'Disconnect' : 'Connect',
                   ),
                 ],
               ),
@@ -449,7 +450,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
       setState(() {
         _isScanning = false;
       });
-      await ref.read(realNearbyDevicesProvider.notifier).stopScanning();
+      // Stop scanning is handled automatically by services
     } else {
       // Start scanning
       setState(() {
@@ -458,7 +459,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
       _scanController.repeat();
       
       HapticFeedback.lightImpact();
-      await ref.read(realNearbyDevicesProvider.notifier).startScanning();
+      // Start scanning is handled automatically by services
       
       // Auto-stop after 30 seconds
       Future.delayed(const Duration(seconds: 30), () {
@@ -469,11 +470,11 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
     }
   }
 
-  void _connectToDevice(RealNearbyDevice device) async {
+  void _connectToDevice(NearbyDevice device) async {
     HapticFeedback.lightImpact();
     
     try {
-      if (device.status == DeviceConnectionStatus.connected) {
+      if (device.isConnected) {
         // Disconnect
         // Disconnect functionality would be handled by the service layer
         ScaffoldMessenger.of(context).showSnackBar(
@@ -510,7 +511,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
     }
   }
 
-  void _startChatWithDevice(RealNearbyDevice device) {
+  void _startChatWithDevice(NearbyDevice device) {
     HapticFeedback.lightImpact();
     
     // Show confirmation dialog for starting chat
@@ -635,7 +636,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
     );
   }
 
-  void _navigateToChat(RealNearbyDevice device) {
+  void _navigateToChat(NearbyDevice device) {
     // TODO: Pass device information to chat screen
     // For now, navigate to general chat screen
     Navigator.push(
@@ -732,9 +733,9 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
     );
   }
 
-  Widget _buildDeviceCategories(List<RealNearbyDevice> devices) {
-    final connectedDevices = devices.where((d) => d.status == DeviceConnectionStatus.connected).toList();
-    final availableDevices = devices.where((d) => d.status != DeviceConnectionStatus.connected).toList();
+  Widget _buildDeviceCategories(List<NearbyDevice> devices) {
+    final connectedDevices = devices.where((d) => d.isConnected).toList();
+    final availableDevices = devices.where((d) => !d.isConnected).toList();
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),

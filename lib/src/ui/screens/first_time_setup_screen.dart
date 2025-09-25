@@ -270,7 +270,7 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen>
           _buildStepIndicator(),
           const SizedBox(height: 32),
           const Text(
-            'ข้อมูลส่วนตัว',
+            'ข้อมูลอุปกรณ์นี้',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -279,32 +279,65 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen>
           ),
           const SizedBox(height: 16),
           const Text(
-            'กรอกข้อมูลพื้นฐานสำหรับการใช้งาน',
+            'ตั้งชื่อสำหรับอุปกรณ์นี้ที่ผู้อื่นจะเห็น\n(ผู้ใช้คนอื่นจะใช้ชื่อเดียวกันนี้)',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
               color: Colors.white60,
+              height: 1.5,
             ),
           ),
           const SizedBox(height: 48),
           _buildInputField(
-            'ชื่อของคุณ',
-            'ชื่อที่จะแสดงให้ผู้อื่นเห็น',
+            'ชื่ออุปกรณ์',
+            'เช่น "มือถือแม่บ้าน", "เครื่องฉุกเฉิน", "มือถือสำนักงาน"',
             _nameController,
-            Icons.person,
+            Icons.smartphone,
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFF00D4FF).withOpacity(0.1),
+              border: Border.all(
+                color: const Color(0xFF00D4FF).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  color: Color(0xFF00D4FF),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: const Text(
+                    'ชื่อนี้จะแสดงให้ผู้อื่นเห็นเมื่อค้นหาอุปกรณ์\nทุกคนที่ใช้อุปกรณ์นี้จะใช้ชื่อเดียวกัน',
+                    style: TextStyle(
+                      color: Color(0xFF00D4FF),
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           _buildInputField(
-            'หมายเลขโทรศัพท์',
-            'หมายเลขติดต่อในกรณีฉุกเฉิน',
+            'หมายเลขติดต่อหลัก',
+            'หมายเลขติดต่อในกรณีฉุกเฉิน (ไม่บังคับ)',
             _phoneController,
             Icons.phone,
             keyboardType: TextInputType.phone,
+            isRequired: false,
           ),
           const Spacer(),
           _buildContinueButton(
             'ถัดไป',
-            (_nameController.text.isNotEmpty && _phoneController.text.isNotEmpty) 
+            _nameController.text.isNotEmpty
                 ? () => _nextStep() 
                 : null,
           ),
@@ -320,6 +353,7 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen>
     TextEditingController controller,
     IconData icon, {
     TextInputType? keyboardType,
+    bool isRequired = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -639,13 +673,13 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_first_time', false);
     await prefs.setString('user_role', _selectedRole);
-    await prefs.setString('user_name', _nameController.text);
-    await prefs.setString('user_phone', _phoneController.text);
+    await prefs.setString('device_name', _nameController.text);
+    await prefs.setString('emergency_phone', _phoneController.text);
     
     debugPrint('✅ First-time setup completed');
     debugPrint('👤 User Role: $_selectedRole');
-    debugPrint('📛 User Name: ${_nameController.text}');
-    debugPrint('📞 User Phone: ${_phoneController.text}');
+    debugPrint('� Device Name: ${_nameController.text}');
+    debugPrint('📞 Emergency Phone: ${_phoneController.text}');
     
     // Navigate to main app
     Navigator.of(context).pushReplacement(

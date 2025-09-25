@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/permission_helper.dart';
 
 class ModernSettingsScreen extends ConsumerStatefulWidget {
@@ -26,8 +27,18 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
   void initState() {
     super.initState();
     _deviceNameController.text = 'My Device';
-    _userNameController.text = 'ผู้ใช้';
-    _phoneController.text = '+66 80 123 4567';
+    _userNameController.text = 'อุปกรณ์ฉุกเฉิน';
+    _phoneController.text = '';
+    _loadSavedSettings();
+  }
+
+  Future<void> _loadSavedSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userNameController.text = prefs.getString('device_name') ?? 'อุปกรณ์ฉุกเฉิน';
+      _phoneController.text = prefs.getString('emergency_phone') ?? '';
+      _userRole = prefs.getString('user_role') ?? 'sos_user';
+    });
   }
 
   @override
@@ -85,8 +96,9 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // User Profile Section
-              _buildSectionHeader('โปรไฟล์ผู้ใช้'),
+              // Device Profile Section
+              _buildSectionHeader('ข้อมูลอุปกรณ์'),
+              _buildDeviceInfoCard(),
               _buildUserProfileSettings(),
               const SizedBox(height: 30),
 
@@ -737,16 +749,6 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
     if (_userNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('กรุณาใส่ชื่อผู้ใช้'),
-          backgroundColor: Color(0xFFFF6B6B),
-        ),
-      );
-      return;
-    }
-
-    if (_deviceNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
           content: Text('กรุณาใส่ชื่ออุปกรณ์'),
           backgroundColor: Color(0xFFFF6B6B),
         ),
@@ -765,7 +767,12 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
       ),
     );
 
-    // Simulate saving process
+    // Save to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('device_name', _userNameController.text.trim());
+    await prefs.setString('emergency_phone', _phoneController.text.trim());
+    await prefs.setString('user_role', _userRole);
+    
     await Future.delayed(const Duration(milliseconds: 800));
     
     // Close loading dialog
@@ -795,7 +802,7 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
                     ),
                   ),
                   Text(
-                    'ชื่อ: ${_userNameController.text} | บทบาท: ${_userRole == 'rescuer' ? 'ผู้ช่วยเหลือ' : 'ผู้ขอความช่วยเหลือ'}',
+                    'อุปกรณ์: ${_userNameController.text} | บทบาท: ${_userRole == 'rescuer' ? 'ผู้ช่วยเหลือ' : 'ผู้ขอความช่วยเหลือ'}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -929,21 +936,98 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
     );
   }
 
+  Widget _buildDeviceInfoCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF00D4FF).withOpacity(0.1),
+            const Color(0xFF5B86E5).withOpacity(0.05),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0xFF00D4FF).withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFF00D4FF).withOpacity(0.2),
+                ),
+                child: const Icon(
+                  Icons.info_outline,
+                  color: Color(0xFF00D4FF),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'เกี่ยวกับการใช้งาน',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '📱 อุปกรณ์นี้ใช้ชื่อเดียวกันสำหรับทุกคนที่ใช้งาน',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '👥 ผู้ใช้แต่ละคนสามารถเลือกบทบาท (SOS หรือ Rescuer) ได้',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '🔄 สามารถเปลี่ยนบทบาทได้ตลอดเวลาตามสถานการณ์',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildUserProfileSettings() {
     return _buildSettingsCard([
       _buildRoleSelectionSetting(),
       const Divider(color: Colors.white10, height: 32),
       _buildTextFieldSetting(
-        'ชื่อผู้ใช้',
-        'ชื่อที่จะแสดงให้ผู้อื่นเห็น',
+        'ชื่ออุปกรณ์',
+        'ชื่อที่จะใช้แสดงให้ผู้อื่นเห็น (ใช้ร่วมกันทุกคน)',
         _userNameController,
-        Icons.person,
+        Icons.smartphone,
       ),
       const Divider(color: Colors.white10, height: 32),
-      _buildTextFieldSetting(
-        'หมายเลขโทรศัพท์',
-        'หมายเลขติดต่อในกรณีฉุกเฉิน',
-        _phoneController,
+      _buildInfoSetting(
+        'หมายเลขติดต่อหลัก',
+        _phoneController.text.isEmpty ? 'ไม่ได้ระบุ' : _phoneController.text,
         Icons.phone,
       ),
       const Divider(color: Colors.white10, height: 32),

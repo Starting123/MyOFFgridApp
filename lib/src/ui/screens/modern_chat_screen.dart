@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
-import '../../providers/enhanced_chat_provider.dart';
-import '../../providers/real_device_providers.dart';
+import '../../providers/main_providers.dart';
+import '../../models/chat_models.dart';
 
 class ModernChatScreen extends ConsumerStatefulWidget {
   const ModernChatScreen({super.key});
@@ -24,8 +24,8 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatState = ref.watch(enhancedChatProvider);
-    final nearbyDevices = ref.watch(realNearbyDevicesProvider);
+    final chatState = ref.watch(messagesProvider);
+    final nearbyDevices = ref.watch(nearbyDevicesProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
@@ -104,15 +104,7 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
             
             // Messages List
             Expanded(
-              child: chatState.when(
-                data: (chatData) => _buildMessagesList(chatData.messages),
-                loading: () => const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF00D4FF),
-                  ),
-                ),
-                error: (error, stack) => _buildErrorState(error.toString()),
-              ),
+              child: _buildMessagesList(chatState),
             ),
             
             // Message Input
@@ -237,8 +229,8 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
     );
   }
 
-  Widget _buildConnectionStatus(List<RealNearbyDevice> nearbyDevices) {
-    final connectedDevices = nearbyDevices.where((d) => d.status == DeviceConnectionStatus.connected).toList();
+  Widget _buildConnectionStatus(List<NearbyDevice> nearbyDevices) {
+    final connectedDevices = nearbyDevices.where((d) => d.isConnected).toList();
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -408,7 +400,9 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
     _messageController.clear();
 
     try {
-      await ref.read(enhancedChatProvider.notifier).sendMessage(message);
+      // Send via MultimediaChatService
+      final chatService = ref.read(multimediaChatServiceProvider);
+      await chatService.sendTextMessage('default', message);
       
       // Scroll to bottom
       if (_scrollController.hasClients) {

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
-import '../../providers/real_device_providers.dart';
+import '../../providers/main_providers.dart';
+import '../../models/chat_models.dart';
 import '../../utils/permission_helper.dart';
 import 'modern_settings_screen.dart';
 import 'modern_devices_screen.dart';
@@ -54,9 +55,8 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final sosState = ref.watch(realSOSActiveProvider);
+    final sosState = ref.watch(realSOSModeProvider);
     final nearbyDevices = ref.watch(realNearbyDevicesProvider);
-    final userInfo = ref.watch(userInfoProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
@@ -77,7 +77,7 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
             child: Column(
               children: [
                 // Header with user info and settings
-                _buildHeader(userInfo),
+                _buildHeader(const AsyncValue.data({'name': 'User', 'role': 'Normal'})),
                 const SizedBox(height: 20),
                 
                 // Emergency SOS Button (Main Feature)
@@ -146,7 +146,7 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'สวัสดี, ${info['name']}',
+                        'อุปกรณ์: ${info['name']}',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.white.withOpacity(0.7),
@@ -265,7 +265,7 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
     );
   }
 
-  Widget _buildStatusDashboard(List<RealNearbyDevice> nearbyDevices) {
+  Widget _buildStatusDashboard(List<NearbyDevice> nearbyDevices) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -285,9 +285,9 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
               Expanded(
                 child: _buildStatusCard(
                   'สถานะการเชื่อมต่อ',
-                  nearbyDevices.any((d) => d.status == DeviceConnectionStatus.connected) ? 'เชื่อมต่อแล้ว' : 'ไม่ได้เชื่อมต่อ',
+                  nearbyDevices.any((d) => d.isConnected) ? 'เชื่อมต่อแล้ว' : 'ไม่ได้เชื่อมต่อ',
                   Icons.wifi_rounded,
-                  nearbyDevices.any((d) => d.status == DeviceConnectionStatus.connected) 
+                  nearbyDevices.any((d) => d.isConnected) 
                       ? const Color(0xFF4CAF50) 
                       : const Color(0xFFFF9800),
                 ),
@@ -310,9 +310,9 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
               Expanded(
                 child: _buildStatusCard(
                   'โหมดฉุกเฉิน',
-                  ref.watch(realSOSActiveProvider) ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
+                  ref.watch(sosActiveModeProvider) ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
                   Icons.emergency,
-                  ref.watch(realSOSActiveProvider) ? const Color(0xFFFF6B6B) : const Color(0xFF757575),
+                  ref.watch(sosActiveModeProvider) ? const Color(0xFFFF6B6B) : const Color(0xFF757575),
                 ),
               ),
             ],
@@ -598,7 +598,12 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
   Future<void> _handleSOSToggle() async {
     HapticFeedback.heavyImpact();
     try {
-      await ref.read(realSOSActiveProvider.notifier).toggle();
+      final isCurrentlyActive = ref.read(sosActiveModeProvider);
+      if (isCurrentlyActive) {
+        AppActions.deactivateSOS(ref);
+      } else {
+        AppActions.activateSOS(ref);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
