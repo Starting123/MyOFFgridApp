@@ -152,7 +152,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
@@ -176,7 +176,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Text(
                       'Secure mesh communication',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -187,7 +187,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 onPressed: () => _showChatSettings(context),
                 icon: Icon(
                   Icons.more_vert,
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -206,20 +206,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Icon(
               Icons.chat_bubble_outline,
               size: 64,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'No messages yet',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Start a conversation with nearby devices',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),
@@ -265,7 +265,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       Text(
                         _formatTime(message.timestamp),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                     ],
@@ -291,7 +291,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         color: theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
-            color: theme.colorScheme.outline.withOpacity(0.2),
+            color: theme.colorScheme.outline.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -304,7 +304,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               Icons.attach_file,
               color: _isConnected 
                 ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface.withOpacity(0.3),
+                : theme.colorScheme.onSurface.withValues(alpha: 0.3),
             ),
           ),
           
@@ -312,10 +312,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(0.2),
+                  color: theme.colorScheme.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: TextField(
@@ -333,7 +333,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     vertical: 12,
                   ),
                   hintStyle: TextStyle(
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
                 style: TextStyle(
@@ -351,7 +351,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             decoration: BoxDecoration(
               color: _messageController.text.trim().isNotEmpty && _isConnected
                 ? theme.colorScheme.primary
-                : theme.colorScheme.surfaceVariant,
+                : theme.colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -362,7 +362,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Icons.send,
                 color: _messageController.text.trim().isNotEmpty && _isConnected
                   ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface.withOpacity(0.5),
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ),

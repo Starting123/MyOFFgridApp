@@ -18,7 +18,7 @@ class ModernWidgets {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: (isVictim ? Colors.red : Colors.blue).withOpacity(0.3),
+            color: (isVictim ? Colors.red : Colors.blue).withValues(alpha: 0.3),
             blurRadius: 20,
             spreadRadius: isActive ? 10 : 0,
           ),
@@ -164,7 +164,7 @@ class ModernWidgets {
           height: 50,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _getRoleColor(role).withOpacity(0.1),
+            color: _getRoleColor(role).withValues(alpha: 0.1),
             border: Border.all(
               color: _getRoleColor(role),
               width: 2,
@@ -254,8 +254,8 @@ class ModernWidgets {
             borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(
               colors: [
-                color.withOpacity(0.1),
-                color.withOpacity(0.05),
+                color.withValues(alpha: 0.1),
+                color.withValues(alpha: 0.05),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -267,7 +267,7 @@ class ModernWidgets {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

@@ -68,7 +68,7 @@ class _ModernMainNavigationState extends ConsumerState<ModernMainNavigation> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -80,7 +80,7 @@ class _ModernMainNavigationState extends ConsumerState<ModernMainNavigation> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: theme.colorScheme.surface,
           selectedItemColor: theme.colorScheme.primary,
-          unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.6),
+          unselectedItemColor: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           selectedLabelStyle: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 12,
@@ -99,7 +99,7 @@ class _ModernMainNavigationState extends ConsumerState<ModernMainNavigation> {
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   color: _currentIndex == 1 
-                    ? Colors.red.withOpacity(0.1) 
+                    ? Colors.red.withValues(alpha: 0.1) 
                     : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),

@@ -118,7 +118,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
@@ -142,7 +142,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                     Text(
                       '${_nearbyDevices.length} devices in range',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -153,7 +153,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                 onPressed: () => _showScanSettings(context),
                 icon: Icon(
                   Icons.tune,
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -168,10 +168,10 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.2),
+          color: theme.colorScheme.outline.withValues(alpha: 0.2),
         ),
       ),
       child: Row(
@@ -185,7 +185,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                 height: 40,
                 decoration: BoxDecoration(
                   color: _isScanning 
-                    ? theme.colorScheme.primary.withOpacity(0.1)
+                    ? theme.colorScheme.primary.withValues(alpha: 0.1)
                     : Colors.transparent,
                   shape: BoxShape.circle,
                 ),
@@ -195,7 +195,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                     Icons.radar,
                     color: _isScanning 
                       ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withOpacity(0.5),
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     size: 24,
                   ),
                 ),
@@ -221,7 +221,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                     ? 'Looking for emergency signals and nearby users'
                     : 'Tap to start scanning for nearby devices',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -233,7 +233,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
             decoration: BoxDecoration(
               color: _isScanning 
                 ? theme.colorScheme.primary
-                : theme.colorScheme.surfaceVariant,
+                : theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -242,7 +242,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                 _isScanning ? Icons.pause : Icons.play_arrow,
                 color: _isScanning 
                   ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface.withOpacity(0.7),
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -260,13 +260,13 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
             Icon(
               Icons.devices_other,
               size: 64,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'No devices found',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 8),
@@ -275,7 +275,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                 ? 'Scanning for nearby devices...'
                 : 'Start scanning to find nearby devices',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),
@@ -340,7 +340,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -426,7 +426,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _getRoleColor(device.role).withOpacity(0.1),
+                    color: _getRoleColor(device.role).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -528,7 +528,7 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen>
             child: Text(
               label,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ),

@@ -95,10 +95,10 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: currentMode == SOSMode.victim 
-              ? Colors.red.withOpacity(0.1)
+              ? Colors.red.withValues(alpha: 0.1)
               : currentMode == SOSMode.rescuer
-                ? Colors.blue.withOpacity(0.1)
-                : theme.colorScheme.primary.withOpacity(0.1),
+                ? Colors.blue.withValues(alpha: 0.1)
+                : theme.colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(
@@ -127,7 +127,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
         Text(
           _getHeaderSubtitle(),
           style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.7),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
           textAlign: TextAlign.center,
         ),
@@ -195,7 +195,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
               child: Text(
                 'Tap to request\nemergency help',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.red.withOpacity(0.8),
+                  color: Colors.red.withValues(alpha: 0.8),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -205,7 +205,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
               child: Text(
                 'Tap to offer\nrescue assistance',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.blue.withOpacity(0.8),
+                  color: Colors.blue.withValues(alpha: 0.8),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -221,10 +221,10 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.2),
+          color: theme.colorScheme.outline.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -251,7 +251,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
           Text(
             locationName,
             style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.9),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 8),
@@ -264,7 +264,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                     Text(
                       'Latitude',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     Text(
@@ -284,7 +284,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                     Text(
                       'Longitude',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     Text(
@@ -309,10 +309,10 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _getStatusColor().withOpacity(0.1),
+        color: _getStatusColor().withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _getStatusColor().withOpacity(0.3),
+          color: _getStatusColor().withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -335,7 +335,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
           Text(
             _getStatusDescription(),
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
             textAlign: TextAlign.center,
           ),
@@ -363,7 +363,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -405,7 +405,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                   child: Text(
                     instruction,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.8),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                     ),
                   ),
                 ),
