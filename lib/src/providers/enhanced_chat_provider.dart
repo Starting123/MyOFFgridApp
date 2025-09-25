@@ -234,7 +234,7 @@ class EnhancedChatNotifier extends AsyncNotifier<EnhancedChatState> {
       print('Message sent to nearby devices: ${message.content}');
     } catch (e) {
       print('Failed to send message to nearby devices: $e');
-      throw e;
+      rethrow;
     }
   }
 

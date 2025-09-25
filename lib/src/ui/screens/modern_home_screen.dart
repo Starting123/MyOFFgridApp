@@ -431,12 +431,14 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
     try {
       await ref.read(realSOSActiveProvider.notifier).toggle();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาด: $e'),
-          backgroundColor: const Color(0xFFFF6B6B),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: $e'),
+            backgroundColor: const Color(0xFFFF6B6B),
+          ),
+        );
+      }
     }
   }
 }

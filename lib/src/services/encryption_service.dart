@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
-import 'package:pointycastle/api.dart';
+import '../utils/logger.dart';
 
 class EncryptionService {
   static final EncryptionService _instance = EncryptionService._internal();
@@ -34,7 +34,7 @@ class EncryptionService {
       final keyPair = keyGen.generateKeyPair();
       _keyPair = keyPair;
     } catch (e) {
-      print('Error generating key pair: $e');
+      Logger.error('Error generating key pair', 'Encryption', e);
       // Fallback key generation
       _generateSimpleKeyPair();
     }
@@ -47,7 +47,7 @@ class EncryptionService {
       keyGen.init(ParametersWithRandom(params, _secureRandom));
       _keyPair = keyGen.generateKeyPair();
     } catch (e) {
-      print('Error with simple key generation: $e');
+      Logger.error('Error with simple key generation', 'Encryption', e);
       rethrow;
     }
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/logger.dart';
 
 import '../services/p2p_service.dart';
 import '../services/nearby_service.dart';
@@ -138,7 +139,7 @@ class RealSOSNotifier extends Notifier<bool> {
     
     if (!state) {
       // Activate SOS
-      debugPrint('🆘 เปิด SOS Mode...');
+      Logger.sos('🆘 เปิด SOS Mode...');
       state = true;
       
       // Initialize services if needed

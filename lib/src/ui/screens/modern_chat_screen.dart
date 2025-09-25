@@ -356,12 +356,14 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to send message: $e'),
-          backgroundColor: const Color(0xFFFF6B6B),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send message: $e'),
+            backgroundColor: const Color(0xFFFF6B6B),
+          ),
+        );
+      }
     }
   }
 
