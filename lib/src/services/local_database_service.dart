@@ -185,6 +185,34 @@ class LocalDatabaseService {
     });
   }
 
+  Future<List<ChatMessage>> getAllMessages() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
+      orderBy: 'timestamp DESC',
+      limit: 1000,
+    );
+
+    return List.generate(maps.length, (i) {
+      final map = maps[i];
+      return ChatMessage(
+        id: map['id'],
+        senderId: map['senderId'],
+        senderName: map['senderName'],
+        receiverId: map['receiverId'],
+        content: map['content'],
+        type: MessageType.values[map['type']],
+        status: MessageStatus.values[map['status']],
+        timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp']),
+        metadata: map['metadata'] != null ? jsonDecode(map['metadata']) : null,
+        filePath: map['filePath'],
+        latitude: map['latitude'],
+        longitude: map['longitude'],
+        isEmergency: map['isEmergency'] == 1,
+      );
+    });
+  }
+
   // Nearby devices operations
   Future<void> insertOrUpdateNearbyDevice(NearbyDevice device) async {
     final db = await database;

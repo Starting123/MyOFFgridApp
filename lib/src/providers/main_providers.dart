@@ -395,32 +395,65 @@ class AppActions {
 
   static Future<void> broadcastSOS(WidgetRef ref, {
     String emergencyType = 'general',
+    String emergencyMessage = 'SOS EMERGENCY - Need immediate help!',
     double? latitude,
     double? longitude,
   }) async {
+    // Create SOS message for local storage
+    final sosMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      senderId: 'current_device',
+      senderName: 'Emergency User',
+      receiverId: 'broadcast',
+      content: 'SOS EMERGENCY: $emergencyType - $emergencyMessage',
+      type: MessageType.sos,
+      status: MessageStatus.sending,
+      timestamp: DateTime.now(),
+      latitude: latitude,
+      longitude: longitude,
+      isEmergency: true,
+    );
+
     try {
-      final sosMessage = ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        senderId: 'current_device',
-        senderName: 'Emergency User',
-        receiverId: 'broadcast',
-        content: 'SOS EMERGENCY: $emergencyType',
-        type: MessageType.sos,
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        latitude: latitude,
-        longitude: longitude,
-        isEmergency: true,
+      // Activate SOS mode
+      activateSOS(ref);
+      
+      // Add to local message state
+      addMessage(ref, sosMessage);
+      
+      // Save to database
+      final dbService = ref.read(databaseServiceProvider);
+      await dbService.insertMessage(sosMessage);
+
+      // Start SOS broadcasting service
+      final nearbyService = ref.read(nearbyServiceProvider);
+      await nearbyService.initialize();
+      await nearbyService.startAdvertising('SOS_EMERGENCY');
+      
+      // Broadcast SOS via NearbyService
+      await nearbyService.broadcastSOS(
+        deviceId: 'current_device',
+        message: '$emergencyType: $emergencyMessage',
+        additionalData: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'timestamp': DateTime.now().toIso8601String(),
+          'emergencyType': emergencyType,
+        },
       );
 
-      addMessage(ref, sosMessage);
+      // Start discovery to find rescuers
+      await startDiscovery(ref);
 
-      final multimediaService = ref.read(multimediaChatServiceProvider);
-      await multimediaService.sendSOSMessage('emergency_broadcast');
-
-      debugPrint('🚨 SOS broadcasted successfully');
+      debugPrint('🚨 SOS broadcasted successfully via Nearby Connections');
+      debugPrint('📡 Emergency advertising started');
+      debugPrint('🔍 Discovery started to find rescuers');
+      
     } catch (e) {
       debugPrint('❌ Error broadcasting SOS: $e');
+      // Update message status to failed
+      final failedMessage = sosMessage.copyWith(status: MessageStatus.failed);
+      addMessage(ref, failedMessage);
     }
   }
 
@@ -456,6 +489,114 @@ class AppActions {
       debugPrint('☁️ Cloud sync completed successfully');
     } catch (e) {
       debugPrint('❌ Error syncing to cloud: $e');
+    }
+  }
+
+  // Device Discovery and Connection
+  static Future<List<NearbyDevice>> discoverDevices(WidgetRef ref) async {
+    try {
+      final nearbyService = ref.read(nearbyServiceProvider);
+      final p2pService = ref.read(p2pServiceProvider);
+
+      // Initialize services if not already done
+      await nearbyService.initialize();
+      await p2pService.initialize();
+
+      // Start discovery
+      await nearbyService.startDiscovery();
+      await p2pService.startDiscovery();
+
+      updateConnectionStatus(ref, isConnected: true, connectionType: 'discovering');
+
+      // Return current nearby devices (will be updated via streams)
+      return AppState.nearbyDevices;
+    } catch (e) {
+      debugPrint('❌ Error discovering devices: $e');
+      updateConnectionStatus(ref, isConnected: false, connectionType: 'error');
+      return [];
+    }
+  }
+
+  static Future<bool> connectToDevice(WidgetRef ref, String deviceId, {String? deviceName}) async {
+    try {
+      final nearbyService = ref.read(nearbyServiceProvider);
+      
+      // Find the device in nearby devices
+      final device = AppState.nearbyDevices.firstWhere(
+        (device) => device.id == deviceId,
+        orElse: () => NearbyDevice(
+          id: deviceId,
+          name: deviceName ?? 'Unknown Device',
+          role: DeviceRole.normal,
+          isSOSActive: false,
+          isRescuerActive: false,
+          lastSeen: DateTime.now(),
+          signalStrength: 0,
+          isConnected: false,
+          connectionType: 'nearby',
+        ),
+      );
+
+      // Attempt connection via Nearby Connections
+      final connectionSuccess = await nearbyService.connectToEndpoint(deviceId);
+      
+      if (connectionSuccess) {
+        // Update device as connected
+        final connectedDevice = device.copyWith(
+          isConnected: true,
+          connectionType: 'nearby_connected',
+          lastSeen: DateTime.now(),
+        );
+        
+        // Update devices list
+        final updatedDevices = AppState.nearbyDevices.map((d) => 
+          d.id == deviceId ? connectedDevice : d
+        ).toList();
+        
+        updateNearbyDevices(ref, updatedDevices);
+        updateConnectionStatus(ref, isConnected: true, connectionType: 'nearby_connected');
+        
+        debugPrint('✅ Connected to device: $deviceId');
+        return true;
+      } else {
+        debugPrint('❌ Failed to connect to device: $deviceId');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error connecting to device $deviceId: $e');
+      return false;
+    }
+  }
+
+  static Future<void> disconnectFromDevice(WidgetRef ref, String deviceId) async {
+    try {
+      final nearbyService = ref.read(nearbyServiceProvider);
+      
+      // Disconnect via Nearby Connections
+      await nearbyService.disconnectFromEndpoint(deviceId);
+      
+      // Update device as disconnected
+      final updatedDevices = AppState.nearbyDevices.map((device) {
+        if (device.id == deviceId) {
+          return device.copyWith(
+            isConnected: false,
+            connectionType: 'nearby',
+          );
+        }
+        return device;
+      }).toList();
+      
+      updateNearbyDevices(ref, updatedDevices);
+      
+      // Check if any devices are still connected
+      final hasConnectedDevices = updatedDevices.any((device) => device.isConnected);
+      if (!hasConnectedDevices) {
+        updateConnectionStatus(ref, isConnected: false, connectionType: 'none');
+      }
+      
+      debugPrint('🔌 Disconnected from device: $deviceId');
+    } catch (e) {
+      debugPrint('❌ Error disconnecting from device $deviceId: $e');
     }
   }
 

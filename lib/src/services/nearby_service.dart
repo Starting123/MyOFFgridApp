@@ -419,8 +419,57 @@ class NearbyService {
     }
   }
 
+  // Connect to a specific endpoint
+  Future<bool> connectToEndpoint(String endpointId) async {
+    try {
+      debugPrint('🔗 Attempting to connect to endpoint: $endpointId');
+      
+      await _nearby.requestConnection(
+        'OffGridSOS',
+        endpointId,
+        onConnectionInitiated: (endpointId, connectionInfo) {
+          debugPrint('🤝 Connection initiated with: $endpointId');
+        },
+        onConnectionResult: (endpointId, result) {
+          if (result == Status.CONNECTED) {
+            _connectedEndpoints.add(endpointId);
+            debugPrint('✅ Successfully connected to: $endpointId');
+          } else {
+            debugPrint('❌ Connection failed to: $endpointId');
+          }
+        },
+        onDisconnected: (endpointId) {
+          _connectedEndpoints.remove(endpointId);
+          debugPrint('🔌 Disconnected from: $endpointId');
+        },
+      );
+      
+      // Wait a bit for connection to establish
+      await Future.delayed(const Duration(seconds: 2));
+      
+      return _connectedEndpoints.contains(endpointId);
+    } catch (e) {
+      debugPrint('❌ Error connecting to endpoint $endpointId: $e');
+      return false;
+    }
+  }
+
+  // Disconnect from a specific endpoint
+  Future<void> disconnectFromEndpoint(String endpointId) async {
+    try {
+      debugPrint('🔌 Disconnecting from endpoint: $endpointId');
+      await _nearby.disconnectFromEndpoint(endpointId);
+      _connectedEndpoints.remove(endpointId);
+      debugPrint('✅ Disconnected from: $endpointId');
+    } catch (e) {
+      debugPrint('❌ Error disconnecting from endpoint $endpointId: $e');
+    }
+  }
+
   void dispose() {
     disconnect();
     _messageController.close();
+    _deviceFoundController.close();
+    _deviceLostController.close();
   }
 }
