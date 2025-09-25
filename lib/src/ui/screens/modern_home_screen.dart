@@ -69,18 +69,33 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(userInfo),
-              const SizedBox(height: 20),
-              _buildSOSButton(sosState),
-              const SizedBox(height: 30),
-              _buildStatusCards(nearbyDevices),
-              const SizedBox(height: 20),
-              _buildQuickActions(),
-              const Spacer(),
-              _buildFooterInfo(),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Header with user info and settings
+                _buildHeader(userInfo),
+                const SizedBox(height: 20),
+                
+                // Emergency SOS Button (Main Feature)
+                _buildSOSButton(sosState),
+                const SizedBox(height: 30),
+                
+                // Status Dashboard
+                _buildStatusDashboard(nearbyDevices),
+                const SizedBox(height: 20),
+                
+                // Quick Actions
+                _buildQuickActions(),
+                const SizedBox(height: 20),
+                
+                // Recent Activity
+                _buildRecentActivity(),
+                const SizedBox(height: 20),
+                
+                // Footer
+                _buildFooterInfo(),
+              ],
+            ),
           ),
         ),
       ),
@@ -233,29 +248,57 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
     );
   }
 
-  Widget _buildStatusCards(List<RealNearbyDevice> nearbyDevices) {
+  Widget _buildStatusDashboard(List<RealNearbyDevice> nearbyDevices) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _buildStatusCard(
-              'อุปกรณ์ใกล้เคียง',
-              '${nearbyDevices.length}',
-              Icons.devices_other_rounded,
-              const Color(0xFF4CAF50),
-            ),
+          // First row - Connection Status
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatusCard(
+                  'อุปกรณ์ใกล้เคียง',
+                  '${nearbyDevices.length}',
+                  Icons.devices_other_rounded,
+                  const Color(0xFF4CAF50),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatusCard(
+                  'สถานะการเชื่อมต่อ',
+                  nearbyDevices.any((d) => d.status == DeviceConnectionStatus.connected) ? 'เชื่อมต่อแล้ว' : 'ไม่ได้เชื่อมต่อ',
+                  Icons.wifi_rounded,
+                  nearbyDevices.any((d) => d.status == DeviceConnectionStatus.connected) 
+                      ? const Color(0xFF4CAF50) 
+                      : const Color(0xFFFF9800),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildStatusCard(
-              'สถานะการเชื่อมต่อ',
-              nearbyDevices.any((d) => d.status == DeviceConnectionStatus.connected) ? 'เชื่อมต่อแล้ว' : 'ไม่ได้เชื่อมต่อ',
-              Icons.wifi_rounded,
-              nearbyDevices.any((d) => d.status == DeviceConnectionStatus.connected) 
-                  ? const Color(0xFF4CAF50) 
-                  : const Color(0xFFFF9800),
-            ),
+          const SizedBox(height: 16),
+          // Second row - Message & Emergency Status
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatusCard(
+                  'ข้อความรอส่ง',
+                  '0', // TODO: Get from message queue
+                  Icons.message_outlined,
+                  const Color(0xFF2196F3),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatusCard(
+                  'โหมดฉุกเฉิน',
+                  ref.watch(realSOSActiveProvider) ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
+                  Icons.emergency,
+                  ref.watch(realSOSActiveProvider) ? const Color(0xFFFF6B6B) : const Color(0xFF757575),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -416,6 +459,100 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentActivity() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withOpacity(0.08),
+              Colors.white.withOpacity(0.03),
+            ],
+          ),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.history,
+                  color: const Color(0xFF00D4FF),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'กิจกรรมล่าสุด',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildActivityItem('ระบบเริ่มทำงาน', 'เมื่อ 2 นาทีที่แล้ว', Icons.power_settings_new),
+            _buildActivityItem('ค้นหาอุปกรณ์ใกล้เคียง', 'เมื่อ 1 นาทีที่แล้ว', Icons.search),
+            _buildActivityItem('เชื่อมต่อสำเร็จ', 'เมื่อ 30 วินาทีที่แล้ว', Icons.check_circle),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityItem(String title, String time, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF00D4FF).withOpacity(0.2),
+            ),
+            child: Icon(
+              icon,
+              size: 12,
+              color: const Color(0xFF00D4FF),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  time,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.6),
                   ),
                 ),
               ],

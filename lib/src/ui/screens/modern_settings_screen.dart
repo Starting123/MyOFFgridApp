@@ -76,28 +76,38 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // User Profile Section
+              _buildSectionHeader('โปรไฟล์ผู้ใช้'),
+              _buildUserProfileSettings(),
+              const SizedBox(height: 30),
+
               // Device Settings
-              _buildSectionHeader('Device Settings'),
+              _buildSectionHeader('การตั้งค่าอุปกรณ์'),
               _buildDeviceSettings(),
               const SizedBox(height: 30),
 
               // Communication Settings
-              _buildSectionHeader('Communication'),
+              _buildSectionHeader('การสื่อสาร'),
               _buildCommunicationSettings(),
               const SizedBox(height: 30),
 
-              // Notification Settings
-              _buildSectionHeader('Notifications'),
-              _buildNotificationSettings(),
-              const SizedBox(height: 30),
-
               // Emergency Settings
-              _buildSectionHeader('Emergency'),
+              _buildSectionHeader('การตั้งค่าฉุกเฉิน'),
               _buildEmergencySettings(),
               const SizedBox(height: 30),
 
-              // About
-              _buildSectionHeader('About'),
+              // Notification Settings
+              _buildSectionHeader('การแจ้งเตือน'),
+              _buildNotificationSettings(),
+              const SizedBox(height: 30),
+
+              // Privacy & Security
+              _buildSectionHeader('ความปลอดภัย'),
+              _buildSecuritySettings(),
+              const SizedBox(height: 30),
+
+              // About & Help
+              _buildSectionHeader('เกี่ยวกับ'),
               _buildAboutSection(),
             ],
           ),
@@ -689,6 +699,213 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
             child: const Text(
               'Close',
               style: TextStyle(color: Color(0xFF00D4FF)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserProfileSettings() {
+    return _buildSettingsCard([
+      _buildTextFieldSetting(
+        'ชื่อผู้ใช้',
+        'ชื่อที่จะแสดงให้ผู้อื่นเห็น',
+        _deviceNameController, // TODO: Add separate user name controller
+        Icons.person,
+      ),
+      const Divider(color: Colors.white10, height: 32),
+      _buildInfoSetting(
+        'หมายเลขโทรศัพท์',
+        '+66 80 123 4567', // TODO: Make this editable
+        Icons.phone,
+      ),
+      const Divider(color: Colors.white10, height: 32),
+      _buildActionSetting(
+        'แก้ไขรูปโปรไฟล์',
+        'เลือกรูปภาพจากแกลเลอรี่',
+        Icons.photo_camera,
+        () => _changeProfilePicture(),
+      ),
+    ]);
+  }
+
+  Widget _buildSecuritySettings() {
+    return _buildSettingsCard([
+      _buildActionSetting(
+        'สร้างกุญแจใหม่',
+        'สร้างกุญแจเข้ารหัสใหม่',
+        Icons.vpn_key,
+        () => _regenerateKeys(),
+      ),
+      const Divider(color: Colors.white10, height: 32),
+      _buildInfoSetting(
+        'สถานะการเข้ารหัส',
+        'เปิดใช้งาน (AES-256)',
+        Icons.security,
+      ),
+      const Divider(color: Colors.white10, height: 32),
+      _buildActionSetting(
+        'ส่งออกข้อมูล',
+        'ส่งออกข้อความและการตั้งค่า',
+        Icons.download,
+        () => _exportData(),
+      ),
+      const Divider(color: Colors.white10, height: 32),
+      _buildActionSetting(
+        'ลบข้อมูลทั้งหมด',
+        'ลบข้อความและรีเซ็ตแอป',
+        Icons.delete_forever,
+        () => _clearAllData(),
+      ),
+    ]);
+  }
+
+  void _changeProfilePicture() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'เปลี่ยนรูปโปรไฟล์',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'ฟีเจอร์นี้จะพร้อมใช้งานในเวอร์ชันถัดไป',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'ตกลง',
+              style: TextStyle(color: Color(0xFF00D4FF)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _regenerateKeys() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'สร้างกุญแจใหม่',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'การสร้างกุญแจใหม่จะทำให้ข้อความเก่าไม่สามารถถอดรหัสได้ คุณแน่ใจหรือไม่?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'ยกเลิก',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement key regeneration
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('สร้างกุญแจใหม่สำเร็จ'),
+                  backgroundColor: Color(0xFF4CAF50),
+                ),
+              );
+            },
+            child: const Text(
+              'สร้างใหม่',
+              style: TextStyle(color: Color(0xFFFF6B6B)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _exportData() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'ส่งออกข้อมูล',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'ส่งออกข้อความและการตั้งค่าเป็นไฟล์ JSON',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'ยกเลิก',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement data export
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('ส่งออกข้อมูลสำเร็จ'),
+                  backgroundColor: Color(0xFF4CAF50),
+                ),
+              );
+            },
+            child: const Text(
+              'ส่งออก',
+              style: TextStyle(color: Color(0xFF00D4FF)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _clearAllData() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'ลบข้อมูลทั้งหมด',
+          style: TextStyle(color: Color(0xFFFF6B6B)),
+        ),
+        content: const Text(
+          'การดำเนินการนี้จะลบข้อความ การตั้งค่า และข้อมูลทั้งหมด ไม่สามารถย้อนกลับได้',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'ยกเลิก',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement data clearing
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('ลบข้อมูลทั้งหมดสำเร็จ'),
+                  backgroundColor: Color(0xFFFF6B6B),
+                ),
+              );
+            },
+            child: const Text(
+              'ลบทั้งหมด',
+              style: TextStyle(color: Color(0xFFFF6B6B)),
             ),
           ),
         ],

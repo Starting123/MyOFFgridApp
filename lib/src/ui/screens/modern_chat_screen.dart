@@ -99,6 +99,9 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
         ),
         child: Column(
           children: [
+            // Connection Status Bar
+            _buildConnectionStatus(nearbyDevices),
+            
             // Messages List
             Expanded(
               child: chatState.when(
@@ -113,7 +116,7 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
             ),
             
             // Message Input
-            _buildMessageInput(),
+            _buildMessageInput(nearbyDevices.isNotEmpty),
           ],
         ),
       ),
@@ -234,7 +237,64 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
     );
   }
 
-  Widget _buildMessageInput() {
+  Widget _buildConnectionStatus(List<RealNearbyDevice> nearbyDevices) {
+    final connectedDevices = nearbyDevices.where((d) => d.status == DeviceConnectionStatus.connected).toList();
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: connectedDevices.isNotEmpty 
+            ? const Color(0xFF4CAF50).withOpacity(0.1)
+            : const Color(0xFFFF9800).withOpacity(0.1),
+        border: Border(
+          bottom: BorderSide(
+            color: connectedDevices.isNotEmpty 
+                ? const Color(0xFF4CAF50).withOpacity(0.3)
+                : const Color(0xFFFF9800).withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            connectedDevices.isNotEmpty ? Icons.wifi : Icons.wifi_off,
+            size: 16,
+            color: connectedDevices.isNotEmpty 
+                ? const Color(0xFF4CAF50)
+                : const Color(0xFFFF9800),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              connectedDevices.isNotEmpty 
+                  ? 'เชื่อมต่อกับ ${connectedDevices.length} อุปกรณ์'
+                  : 'ไม่ได้เชื่อมต่อ - ข้อความจะถูกเก็บไว้ส่งภายหลัง',
+              style: TextStyle(
+                fontSize: 12,
+                color: connectedDevices.isNotEmpty 
+                    ? const Color(0xFF4CAF50)
+                    : const Color(0xFFFF9800),
+              ),
+            ),
+          ),
+          if (connectedDevices.isEmpty)
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/devices'),
+              child: const Text(
+                'เชื่อมต่อ',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF00D4FF),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageInput(bool hasConnection) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -264,9 +324,12 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
                   controller: _messageController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    hintText: 'Type a message...',
+                    hintText: hasConnection ? 'พิมพ์ข้อความ...' : 'ข้อความจะส่งเมื่อเชื่อมต่อแล้ว...',
                     hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
                     border: InputBorder.none,
+                    suffixIcon: !hasConnection 
+                        ? Icon(Icons.schedule, color: Colors.orange.withOpacity(0.6), size: 16)
+                        : null,
                   ),
                   maxLines: null,
                   onSubmitted: (_) => _sendMessage(),

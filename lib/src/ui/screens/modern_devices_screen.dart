@@ -89,8 +89,14 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
         ),
         child: Column(
           children: [
+            // Scan Controls
+            _buildScanControls(),
+            
             // Status Header
             _buildStatusHeader(nearbyDevices.length, rescuerMode),
+            
+            // Device Categories
+            _buildDeviceCategories(nearbyDevices),
             
             // Devices List
             Expanded(
@@ -460,5 +466,160 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
         ),
       );
     }
+  }
+
+  Widget _buildScanControls() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF00D4FF).withOpacity(0.1),
+            const Color(0xFF5B86E5).withOpacity(0.05),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0xFF00D4FF).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ค้นหาอุปกรณ์ใกล้เคียง',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  _isScanning ? 'กำลังค้นหา...' : 'แตะเพื่อเริ่มค้นหา',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: _isScanning ? null : _startScan,
+            icon: AnimatedBuilder(
+              animation: _scanAnimation,
+              builder: (context, child) {
+                return Transform.rotate(
+                  angle: _isScanning ? _scanAnimation.value * 2 * 3.14159 : 0,
+                  child: Icon(
+                    _isScanning ? Icons.stop : Icons.search,
+                    color: Colors.white,
+                  ),
+                );
+              },
+            ),
+            label: Text(
+              _isScanning ? 'หยุด' : 'ค้นหา',
+              style: const TextStyle(color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _isScanning ? Colors.red[600] : const Color(0xFF00D4FF),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceCategories(List<RealNearbyDevice> devices) {
+    final connectedDevices = devices.where((d) => d.status == DeviceConnectionStatus.connected).toList();
+    final availableDevices = devices.where((d) => d.status != DeviceConnectionStatus.connected).toList();
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildCategoryCard(
+              'เชื่อมต่อแล้ว',
+              connectedDevices.length,
+              Icons.link,
+              const Color(0xFF4CAF50),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildCategoryCard(
+              'พร้อมเชื่อมต่อ',
+              availableDevices.length,
+              Icons.devices_other,
+              const Color(0xFF2196F3),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildCategoryCard(
+              'ทั้งหมด',
+              devices.length,
+              Icons.radar,
+              const Color(0xFF9C27B0),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(String title, int count, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          colors: [
+            color.withOpacity(0.2),
+            color.withOpacity(0.1),
+          ],
+        ),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            count.toString(),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Colors.white70,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 }

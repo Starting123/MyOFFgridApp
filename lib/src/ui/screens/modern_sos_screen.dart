@@ -75,6 +75,10 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
+                // Mode Selection
+                _buildModeSelection(),
+                const SizedBox(height: 30),
+                
                 // Emergency Status
                 _buildEmergencyStatus(sosState),
                 const SizedBox(height: 40),
@@ -85,6 +89,10 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
                     child: _buildEmergencyButton(sosState),
                   ),
                 ),
+                
+                // Instructions
+                _buildInstructions(sosState),
+                const SizedBox(height: 20),
                 
                 // Device Status
                 _buildDeviceStatus(nearbyDevices),
@@ -332,6 +340,162 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
                 );
               }).toList(),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeSelection() {
+    final rescuerMode = ref.watch(realRescuerModeProvider);
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.08),
+            Colors.white.withOpacity(0.03),
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'เลือกโหมด',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildModeButton(
+                  'VICTIM (RED)',
+                  'ขอความช่วยเหลือ',
+                  Icons.warning,
+                  const Color(0xFFFF6B6B),
+                  !rescuerMode,
+                  () => ref.read(realRescuerModeProvider.notifier).toggle(),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildModeButton(
+                  'RESCUER (BLUE)',
+                  'ให้ความช่วยเหลือ',
+                  Icons.healing,
+                  const Color(0xFF2196F3),
+                  rescuerMode,
+                  () => ref.read(realRescuerModeProvider.notifier).toggle(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeButton(String title, String subtitle, IconData icon, Color color, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: isSelected
+                ? [color.withOpacity(0.3), color.withOpacity(0.1)]
+                : [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)],
+          ),
+          border: Border.all(
+            color: isSelected ? color : Colors.white.withOpacity(0.1),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? color : Colors.white54,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? color : Colors.white54,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 10,
+                color: isSelected ? color.withOpacity(0.8) : Colors.white38,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructions(bool isActive) {
+    final rescuerMode = ref.watch(realRescuerModeProvider);
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.05),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.info_outline,
+            color: const Color(0xFF00D4FF),
+            size: 20,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            rescuerMode 
+                ? (isActive ? 'กำลังค้นหาสัญญาณ SOS ใกล้เคียง' : 'พร้อมรับสัญญาณ SOS')
+                : (isActive ? 'กำลังส่งสัญญาณ SOS' : 'กดปุ่มด้านบนเพื่อส่งสัญญาณขอความช่วยเหลือ'),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white70,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (!rescuerMode && !isActive) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'ในกรณีฉุกเฉิน ระบบจะส่งตำแหน่งและข้อมูลติดต่อไปยังอุปกรณ์ใกล้เคียง',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white54,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );
