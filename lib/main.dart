@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'src/ui/screens/modern_main_navigation.dart';
+import 'src/ui/screens/first_time_setup_screen.dart';
 import 'src/services/nearby_service.dart';
 import 'src/utils/background_service_manager.dart';
 
@@ -219,8 +221,88 @@ class CompleteOffGridSOSApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const ModernMainNavigation(),
+        home: const AppStartScreen(),
       ),
     );
+  }
+}
+
+class AppStartScreen extends StatefulWidget {
+  const AppStartScreen({super.key});
+
+  @override
+  State<AppStartScreen> createState() => _AppStartScreenState();
+}
+
+class _AppStartScreenState extends State<AppStartScreen> {
+  bool? _isFirstTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstTimeUser();
+  }
+
+  Future<void> _checkFirstTimeUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isFirstTime = prefs.getBool('is_first_time') ?? true;
+    
+    setState(() {
+      _isFirstTime = isFirstTime;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isFirstTime == null) {
+      // Show loading screen while checking
+      return Scaffold(
+        backgroundColor: const Color(0xFF0A0A0A),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF00D4FF).withOpacity(0.3),
+                      const Color(0xFF5B86E5).withOpacity(0.2),
+                    ],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  color: Color(0xFF00D4FF),
+                  size: 64,
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Off-Grid SOS',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const CircularProgressIndicator(
+                color: Color(0xFF00D4FF),
+                strokeWidth: 2,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isFirstTime!) {
+      return const FirstTimeSetupScreen();
+    } else {
+      return const ModernMainNavigation();
+    }
   }
 }

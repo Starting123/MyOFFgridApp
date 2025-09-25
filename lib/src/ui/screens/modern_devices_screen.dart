@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../../providers/real_device_providers.dart';
+import 'modern_chat_screen.dart';
 
 class ModernDevicesScreen extends ConsumerStatefulWidget {
   const ModernDevicesScreen({super.key});
@@ -268,80 +269,151 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
   }
 
   Widget _buildDeviceCard(RealNearbyDevice device) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withOpacity(0.08),
-            Colors.white.withOpacity(0.03),
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              colors: [
-                _getDeviceColor(device.type).withOpacity(0.3),
-                _getDeviceColor(device.type).withOpacity(0.1),
-              ],
-            ),
+    final rescuerMode = ref.watch(realRescuerModeProvider);
+    
+    // Simulate device role information (in real app, this would come from device data)
+    final isSOSUser = device.name.contains('SOS') || device.id.contains('emergency');
+    final isRescuer = device.name.contains('Rescuer') || device.id.contains('rescue');
+    
+    Color roleColor = Colors.white54;
+    IconData roleIcon = Icons.person;
+    String roleLabel = 'Unknown';
+    
+    if (isSOSUser) {
+      roleColor = const Color(0xFFFF6B6B);
+      roleIcon = Icons.warning;
+      roleLabel = 'SOS User';
+    } else if (isRescuer) {
+      roleColor = const Color(0xFF4CAF50);
+      roleIcon = Icons.medical_services;
+      roleLabel = 'Rescuer';
+    }
+
+    return GestureDetector(
+      onTap: () => _startChatWithDevice(device),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withOpacity(0.08),
+              Colors.white.withOpacity(0.03),
+            ],
           ),
-          child: Icon(
-            _getDeviceIcon(device.type),
-            color: _getDeviceColor(device.type),
-            size: 24,
-          ),
-        ),
-        title: Text(
-          device.name,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+          border: Border.all(
+            color: isSOSUser && rescuerMode 
+                ? const Color(0xFFFF6B6B).withOpacity(0.5)
+                : Colors.white.withOpacity(0.1),
+            width: isSOSUser && rescuerMode ? 2 : 1,
           ),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              device.id,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.white60,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    colors: [
+                      roleColor.withOpacity(0.3),
+                      roleColor.withOpacity(0.1),
+                    ],
+                  ),
+                ),
+                child: Icon(
+                  roleIcon,
+                  color: roleColor,
+                  size: 24,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildStatusChip(
-                  device.status == DeviceConnectionStatus.connected ? 'Connected' : 'Available',
-                  device.status == DeviceConnectionStatus.connected ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            device.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSOSUser && rescuerMode)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0xFFFF6B6B).withOpacity(0.2),
+                            ),
+                            child: const Text(
+                              'EMERGENCY',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFFF6B6B),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      device.id,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white60,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildStatusChip(
+                          roleLabel,
+                          roleColor,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          device.status == DeviceConnectionStatus.connected ? 'Connected' : 'Available',
+                          device.status == DeviceConnectionStatus.connected ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _buildStatusChip(
-                  device.type.toString().split('.').last,
-                  _getDeviceColor(device.type),
-                ),
-              ],
-            ),
-          ],
-        ),
-        trailing: IconButton(
-          onPressed: () => _connectToDevice(device),
-          icon: Icon(
-            device.status == DeviceConnectionStatus.connected ? Icons.link_off : Icons.link,
-            color: device.status == DeviceConnectionStatus.connected ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                children: [
+                  IconButton(
+                    onPressed: () => _startChatWithDevice(device),
+                    icon: const Icon(
+                      Icons.chat_bubble_outline,
+                      color: Color(0xFF00D4FF),
+                      size: 24,
+                    ),
+                    tooltip: 'Start Chat',
+                  ),
+                  IconButton(
+                    onPressed: () => _connectToDevice(device),
+                    icon: Icon(
+                      device.status == DeviceConnectionStatus.connected ? Icons.link_off : Icons.link,
+                      color: device.status == DeviceConnectionStatus.connected ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50),
+                      size: 20,
+                    ),
+                    tooltip: device.status == DeviceConnectionStatus.connected ? 'Disconnect' : 'Connect',
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -368,36 +440,6 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
         ),
       ),
     );
-  }
-
-  Color _getDeviceColor(String type) {
-    switch (type.toLowerCase()) {
-      case 'phone':
-      case 'smartphone':
-        return const Color(0xFF2196F3);
-      case 'tablet':
-        return const Color(0xFF9C27B0);
-      case 'laptop':
-      case 'computer':
-        return const Color(0xFFFF9800);
-      default:
-        return const Color(0xFF757575);
-    }
-  }
-
-  IconData _getDeviceIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'phone':
-      case 'smartphone':
-        return Icons.smartphone;
-      case 'tablet':
-        return Icons.tablet;
-      case 'laptop':
-      case 'computer':
-        return Icons.laptop;
-      default:
-        return Icons.device_unknown;
-    }
   }
 
   void _startScan() async {
@@ -466,6 +508,157 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
         ),
       );
     }
+  }
+
+  void _startChatWithDevice(RealNearbyDevice device) {
+    HapticFeedback.lightImpact();
+    
+    // Show confirmation dialog for starting chat
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.chat_bubble,
+                color: const Color(0xFF00D4FF),
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Start Chat',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Start a secure 1-on-1 chat with ${device.name}?',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.05),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.security,
+                      color: Color(0xFF4CAF50),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'End-to-end encrypted',
+                      style: TextStyle(
+                        color: Color(0xFF4CAF50),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.05),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.wifi_off,
+                      color: Color(0xFF00D4FF),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Works without internet',
+                      style: TextStyle(
+                        color: Color(0xFF00D4FF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white54),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToChat(device);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00D4FF),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Start Chat',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _navigateToChat(RealNearbyDevice device) {
+    // TODO: Pass device information to chat screen
+    // For now, navigate to general chat screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ModernChatScreen(),
+      ),
+    );
+    
+    // Show snackbar with device info
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.chat, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Text('Starting chat with ${device.name}'),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Widget _buildScanControls() {

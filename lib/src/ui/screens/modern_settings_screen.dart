@@ -20,6 +20,7 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
   bool _vibrationEnabled = true;
   bool _soundEnabled = true;
   double _scanRadius = 100.0;
+  String _userRole = 'sos_user'; // 'sos_user' or 'rescuer'
 
   @override
   void initState() {
@@ -591,6 +592,144 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
     );
   }
 
+  Widget _buildRoleSelectionSetting() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF00D4FF).withOpacity(0.2),
+                const Color(0xFF5B86E5).withOpacity(0.1),
+              ],
+            ),
+          ),
+          child: Icon(
+            _userRole == 'rescuer' ? Icons.medical_services : Icons.warning,
+            color: const Color(0xFF00D4FF),
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'บทบาทของคุณ',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _userRole = 'sos_user');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: _userRole == 'sos_user' 
+                              ? const Color(0xFFFF6B6B).withOpacity(0.2)
+                              : Colors.white.withOpacity(0.05),
+                          border: Border.all(
+                            color: _userRole == 'sos_user'
+                                ? const Color(0xFFFF6B6B)
+                                : Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.warning,
+                              color: _userRole == 'sos_user' 
+                                  ? const Color(0xFFFF6B6B)
+                                  : Colors.white54,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ผู้ขอความช่วยเหลือ',
+                              style: TextStyle(
+                                color: _userRole == 'sos_user' 
+                                    ? Colors.white
+                                    : Colors.white54,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _userRole = 'rescuer');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: _userRole == 'rescuer' 
+                              ? const Color(0xFF4CAF50).withOpacity(0.2)
+                              : Colors.white.withOpacity(0.05),
+                          border: Border.all(
+                            color: _userRole == 'rescuer'
+                                ? const Color(0xFF4CAF50)
+                                : Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.medical_services,
+                              color: _userRole == 'rescuer' 
+                                  ? const Color(0xFF4CAF50)
+                                  : Colors.white54,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ผู้ช่วยเหลือ',
+                              style: TextStyle(
+                                color: _userRole == 'rescuer' 
+                                    ? Colors.white
+                                    : Colors.white54,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   void _saveSettings() async {
     HapticFeedback.lightImpact();
     
@@ -656,7 +795,7 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
                     ),
                   ),
                   Text(
-                    'ชื่อ: ${_userNameController.text} | อุปกรณ์: ${_deviceNameController.text}',
+                    'ชื่อ: ${_userNameController.text} | บทบาท: ${_userRole == 'rescuer' ? 'ผู้ช่วยเหลือ' : 'ผู้ขอความช่วยเหลือ'}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -792,6 +931,8 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
 
   Widget _buildUserProfileSettings() {
     return _buildSettingsCard([
+      _buildRoleSelectionSetting(),
+      const Divider(color: Colors.white10, height: 32),
       _buildTextFieldSetting(
         'ชื่อผู้ใช้',
         'ชื่อที่จะแสดงให้ผู้อื่นเห็น',
