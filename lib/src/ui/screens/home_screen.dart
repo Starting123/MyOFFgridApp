@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'modern_chat_screen.dart';
+import 'nearby_devices_screen.dart';
+import 'sos_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -317,30 +321,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToSOS(BuildContext context) {
-    // TODO: Navigate to SOS screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Navigating to SOS Mode...')),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const SOSScreen()),
     );
   }
 
   void _navigateToDevices(BuildContext context) {
-    // TODO: Navigate to Nearby Devices screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Scanning for nearby devices...')),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const NearbyDevicesScreen()),
     );
   }
 
   void _navigateToChat(BuildContext context) {
-    // TODO: Navigate to Chat screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening secure chat...')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ModernChatScreen(
+          chatId: 'general',
+          chatName: 'General Chat',
+        ),
+      ),
     );
   }
 
   void _navigateToSettings(BuildContext context) {
-    // TODO: Navigate to Settings screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening settings...')),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
     );
   }
 }
