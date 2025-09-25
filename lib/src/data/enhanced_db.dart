@@ -78,7 +78,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   
   /// Insert a new message with pending status
   Future<int> insertPendingMessage(EnhancedMessageModel message) async {
-    final companion = EnhancedMessagesCompanion(
+    final companion = EnhancedMessageCompanion(
       messageId: Value(message.id),
       senderId: Value(message.senderId),
       receiverId: Value(message.receiverId),
@@ -114,7 +114,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   Future<bool> markMessageSent(String messageId) async {
     final result = await (update(enhancedMessages)
           ..where((m) => m.messageId.equals(messageId)))
-        .write(EnhancedMessagesCompanion(
+        .write(EnhancedMessageCompanion(
           status: const Value(MessageStatus.sent),
           updatedAt: Value(DateTime.now()),
         ));
@@ -124,7 +124,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   /// Mark message as delivered to specific device
   Future<bool> markMessageDelivered(String messageId, String deviceId) async {
     // Insert delivery record
-    await into(messageDeliveries).insert(MessageDeliveriesCompanion(
+    await into(messageDeliveries).insert(MessageDeliveryCompanion(
       messageId: Value(messageId),
       deviceId: Value(deviceId),
       deliveredAt: Value(DateTime.now()),
@@ -133,7 +133,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
     // Update message status
     final result = await (update(enhancedMessages)
           ..where((m) => m.messageId.equals(messageId)))
-        .write(EnhancedMessagesCompanion(
+        .write(EnhancedMessageCompanion(
           status: const Value(MessageStatus.delivered),
           deliveredAt: Value(DateTime.now()),
           updatedAt: Value(DateTime.now()),
@@ -145,7 +145,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   Future<bool> markMessageSynced(String messageId) async {
     final result = await (update(enhancedMessages)
           ..where((m) => m.messageId.equals(messageId)))
-        .write(EnhancedMessagesCompanion(
+        .write(EnhancedMessageCompanion(
           status: const Value(MessageStatus.synced),
           syncedAt: Value(DateTime.now()),
           updatedAt: Value(DateTime.now()),
@@ -157,7 +157,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   Future<bool> markMessageFailed(String messageId) async {
     final result = await (update(enhancedMessages)
           ..where((m) => m.messageId.equals(messageId)))
-        .write(EnhancedMessagesCompanion(
+        .write(EnhancedMessageCompanion(
           status: const Value(MessageStatus.failed),
           updatedAt: Value(DateTime.now()),
         ));
@@ -168,7 +168,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   
   /// Register or update a nearby device
   Future<void> upsertDevice(String deviceId, String name, String deviceType, {String? publicKey}) async {
-    await into(devices).insertOnConflictUpdate(DevicesCompanion(
+    await into(devices).insertOnConflictUpdate(DeviceCompanion(
       id: Value(deviceId),
       name: Value(name),
       deviceType: Value(deviceType),
@@ -185,7 +185,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   /// Mark device as offline
   Future<void> markDeviceOffline(String deviceId) async {
     await (update(devices)..where((d) => d.id.equals(deviceId)))
-        .write(const DevicesCompanion(isOnline: Value(false)));
+        .write(const DeviceCompanion(isOnline: Value(false)));
   }
 
   // ============ SOS OPERATIONS ============
@@ -199,7 +199,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
     double? latitude,
     double? longitude,
   }) async {
-    return await into(sosBroadcasts).insert(SosBroadcastsCompanion(
+    return await into(sosBroadcasts).insert(SosBroadcastCompanion(
       sosId: Value(sosId),
       deviceId: Value(deviceId),
       deviceName: Value(deviceName),
@@ -217,7 +217,7 @@ class EnhancedAppDatabase extends _$EnhancedAppDatabase {
   /// Acknowledge SOS broadcast
   Future<void> acknowledgeSos(String sosId) async {
     await (update(sosBroadcasts)..where((s) => s.sosId.equals(sosId)))
-        .write(SosBroadcastsCompanion(
+        .write(SosBroadcastCompanion(
           isActive: const Value(false),
           acknowledgedAt: Value(DateTime.now()),
         ));

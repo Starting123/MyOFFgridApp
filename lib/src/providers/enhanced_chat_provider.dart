@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/enhanced_message_model.dart';
 import '../services/nearby_service.dart';
-import '../services/message_queue_service.dart';
+import '../services/enhanced_message_queue_service.dart';
 import '../services/encryption_service.dart';
 import '../services/location_service.dart';
 

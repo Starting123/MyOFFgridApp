@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:drift/drift.dart';
+
 import '../services/p2p_service.dart';
 import '../services/nearby_service.dart';
-import '../data/db.dart';
+import '../data/enhanced_db.dart';
 import '../utils/debug_helper.dart';
 
 // Real device model
@@ -89,8 +89,8 @@ final nearbyServiceProvider = Provider<NearbyService>((ref) {
   return NearbyService.instance;
 });
 
-final databaseProvider = Provider<AppDatabase>((ref) {
-  return AppDatabase();
+final databaseProvider = Provider<EnhancedAppDatabase>((ref) {
+  return EnhancedAppDatabase();
 });
 
 // User info provider (existing - keeping real implementation)
@@ -490,14 +490,11 @@ class RealNearbyDevicesNotifier extends Notifier<List<RealNearbyDevice>> {
   Future<void> _saveDeviceToDatabase(RealNearbyDevice device) async {
     try {
       final database = ref.read(databaseProvider);
-      final deviceCompanion = DeviceCompanion(
-        id: Value(device.id),
-        name: Value(device.name),
-        deviceType: Value(device.type),
-        lastSeen: Value(device.lastSeen),
+      await database.upsertDevice(
+        device.id,
+        device.name,
+        device.type,
       );
-      
-      await database.upsertDevice(deviceCompanion);
     } catch (e) {
       // Handle database error silently
       debugPrint('Error saving device to database: $e');

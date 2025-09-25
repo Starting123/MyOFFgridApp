@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../data/db.dart';
+import '../data/enhanced_db.dart';
 
 /// Represents the current sync state
 enum SyncState {
@@ -41,7 +41,7 @@ class SyncStateManager with ChangeNotifier {
   DateTime? get lastSyncAttempt => _lastSyncAttempt;
   bool get isSyncing => _currentState == SyncState.syncing;
 
-  SyncStateManager(AppDatabase db) {
+  SyncStateManager(EnhancedAppDatabase db) {
     // Start monitoring sync health
     _monitoringTimer = Timer.periodic(
       const Duration(minutes: 1),

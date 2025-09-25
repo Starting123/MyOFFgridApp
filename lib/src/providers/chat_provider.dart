@@ -39,6 +39,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   final NearbyService _nearbyService = NearbyService.instance;
   StreamSubscription? _messageSubscription;
 
+
   @override
   Future<ChatState> build() async {
     // Listen to incoming messages
@@ -115,6 +116,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   void clearError() {
     final currentState = state.value ?? const ChatState();
     state = AsyncValue.data(currentState.copyWith(error: null));
+  }
+
+  void dispose() {
+    _messageSubscription?.cancel();
   }
 }
 

@@ -3,7 +3,7 @@ import 'dart:math';
 import '../models/enhanced_message_model.dart';
 import '../services/nearby_service.dart';
 import '../services/location_service.dart';
-import '../services/message_queue_service.dart';
+import '../services/enhanced_message_queue_service.dart';
 
 enum SOSMode {
   victim,    // RED mode - person in distress
