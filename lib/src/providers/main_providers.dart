@@ -156,13 +156,7 @@ class _StateChangeNotifier {
     });
   }
 
-  static void addProviderListener(VoidCallback listener) {
-    _providerListeners.add(listener);
-  }
 
-  static void removeProviderListener(VoidCallback listener) {
-    _providerListeners.remove(listener);
-  }
 
   static int get counter => _counter;
 }

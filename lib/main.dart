@@ -5,7 +5,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'src/ui/screens/modern_main_navigation.dart';
 import 'src/ui/screens/first_time_setup_screen.dart';
+import 'src/ui/screens/login_screen.dart';
+import 'src/ui/theme/app_theme.dart';
 import 'src/services/nearby_service.dart';
+import 'src/services/auth_service.dart';
 import 'src/utils/background_service_manager.dart';
 
 void main() async {
@@ -108,6 +111,10 @@ Future<void> _requestPermissions() async {
 /// Initialize core services
 Future<void> _initializeServices() async {
   try {
+    // Initialize Auth Service
+    await AuthService.instance.initialize();
+    debugPrint('✅ Auth Service initialized');
+    
     // Initialize Nearby Service
     final nearbyInitialized = await NearbyService.instance.initialize();
     debugPrint(nearbyInitialized ? '✅ Nearby Service initialized' : '❌ Nearby Service failed');
@@ -169,58 +176,9 @@ class CompleteOffGridSOSApp extends StatelessWidget {
     return WithForegroundTask(
       child: MaterialApp(
         title: 'Off-Grid SOS & Nearby Share',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-            primary: Colors.blue,
-            secondary: Colors.red,
-            error: Colors.red,
-            brightness: Brightness.light,
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            centerTitle: true,
-            elevation: 2,
-          ),
-          cardTheme: const CardThemeData(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
-          ),
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ),
-        darkTheme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-            primary: Colors.blue,
-            secondary: Colors.red,
-            error: Colors.red,
-            brightness: Brightness.dark,
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            centerTitle: true,
-            elevation: 2,
-          ),
-          cardTheme: const CardThemeData(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
-          ),
-        ),
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark, // Default to dark theme for emergency app
         home: const AppStartScreen(),
       ),
     );
@@ -236,25 +194,28 @@ class AppStartScreen extends StatefulWidget {
 
 class _AppStartScreenState extends State<AppStartScreen> {
   bool? _isFirstTime;
+  bool? _isLoggedIn;
 
   @override
   void initState() {
     super.initState();
-    _checkFirstTimeUser();
+    _checkAppState();
   }
 
-  Future<void> _checkFirstTimeUser() async {
+  Future<void> _checkAppState() async {
     final prefs = await SharedPreferences.getInstance();
     final isFirstTime = prefs.getBool('is_first_time') ?? true;
+    final isLoggedIn = AuthService.instance.isLoggedIn;
     
     setState(() {
       _isFirstTime = isFirstTime;
+      _isLoggedIn = isLoggedIn;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isFirstTime == null) {
+    if (_isFirstTime == null || _isLoggedIn == null) {
       // Show loading screen while checking
       return Scaffold(
         backgroundColor: const Color(0xFF0A0A0A),
@@ -301,6 +262,8 @@ class _AppStartScreenState extends State<AppStartScreen> {
 
     if (_isFirstTime!) {
       return const FirstTimeSetupScreen();
+    } else if (!_isLoggedIn!) {
+      return const LoginScreen();
     } else {
       return const ModernMainNavigation();
     }

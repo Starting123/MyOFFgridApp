@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../theme/app_theme.dart';
 import 'modern_home_screen.dart';
 import 'modern_sos_screen.dart';
 import 'modern_chat_screen.dart';
@@ -97,18 +98,10 @@ class _ModernMainNavigationState extends State<ModernMainNavigation> with Ticker
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1A1A2E),
-              Color(0xFF16213E),
-              Color(0xFF0F0F0F),
-            ],
-          ),
+        decoration: BoxDecoration(
+          gradient: AppTheme.mainGradient,
         ),
         child: PageView(
           controller: _pageController,
@@ -123,16 +116,19 @@ class _ModernMainNavigationState extends State<ModernMainNavigation> with Ticker
       bottomNavigationBar: _buildModernBottomNav(),
       floatingActionButton: _currentIndex == 1 
           ? null 
-          : ScaleTransition(
-              scale: _fabAnimation,
-              child: FloatingActionButton(
-                onPressed: () => _onTabTapped(1),
-                backgroundColor: const Color(0xFFFF6B6B),
-                elevation: 8,
-                child: const Icon(
-                  Icons.warning_rounded,
-                  color: Colors.white,
-                  size: 28,
+          : AppTheme.pulseEffect(
+              isActive: true,
+              child: ScaleTransition(
+                scale: _fabAnimation,
+                child: FloatingActionButton(
+                  onPressed: () => _onTabTapped(1),
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  elevation: 8,
+                  child: const Icon(
+                    Icons.warning_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
               ),
             ),

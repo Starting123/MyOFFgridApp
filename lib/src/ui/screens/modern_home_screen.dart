@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../providers/main_providers.dart';
 import '../../models/chat_models.dart';
 import '../../utils/permission_helper.dart';
+import '../theme/app_theme.dart';
+import '../components/shared_components_clean.dart';
 import 'modern_settings_screen.dart';
 import 'modern_devices_screen.dart';
 import 'modern_chat_screen.dart';
@@ -55,22 +57,20 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final sosState = ref.watch(realSOSModeProvider);
-    final nearbyDevices = ref.watch(realNearbyDevicesProvider);
+    final sosState = ref.watch(sosActiveModeProvider);
+    final rescuerMode = ref.watch(rescuerActiveModeProvider);
+    final nearbyDevices = ref.watch(nearbyDevicesProvider);
+    final connectedDevices = nearbyDevices.where((d) => d.isConnected).length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1A1A2E),
-              Color(0xFF16213E),
-              Color(0xFF0F0F0F),
-            ],
-          ),
+        decoration: BoxDecoration(
+          gradient: sosState 
+              ? AppTheme.emergencyGradient
+              : rescuerMode 
+                  ? AppTheme.rescuerGradient
+                  : AppTheme.mainGradient,
         ),
         child: SafeArea(
           child: SingleChildScrollView(
@@ -78,7 +78,15 @@ class _ModernHomeScreenState extends ConsumerState<ModernHomeScreen>
               children: [
                 // Header with user info and settings
                 _buildHeader(const AsyncValue.data({'name': 'User', 'role': 'Normal'})),
-                const SizedBox(height: 20),
+                
+                // Connection status banner
+                SharedComponents.connectionBanner(
+                  context: context,
+                  connectedDevices: connectedDevices,
+                  nearbyDevices: nearbyDevices.length,
+                  isSearching: false,
+                  onRefresh: () => AppActions.discoverDevices(ref),
+                ),
                 
                 // Emergency SOS Button (Main Feature)
                 _buildSOSButton(sosState),

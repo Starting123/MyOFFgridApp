@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../providers/main_providers.dart';
 import '../../models/chat_models.dart';
-import '../../services/location_service.dart';
+
 
 class ModernSOSScreen extends ConsumerStatefulWidget {
   const ModernSOSScreen({super.key});

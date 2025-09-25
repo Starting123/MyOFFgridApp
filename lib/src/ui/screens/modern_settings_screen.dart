@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/main_providers.dart';
+import '../../providers/user_provider.dart';
 import '../../utils/permission_helper.dart';
+import 'login_screen.dart';
 
 class ModernSettingsScreen extends ConsumerStatefulWidget {
   const ModernSettingsScreen({super.key});
@@ -1021,29 +1023,87 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
   }
 
   Widget _buildUserProfileSettings() {
-    return _buildSettingsCard([
-      _buildRoleSelectionSetting(),
-      const Divider(color: Colors.white10, height: 32),
-      _buildTextFieldSetting(
-        'ชื่ออุปกรณ์',
-        'ชื่อที่จะใช้แสดงให้ผู้อื่นเห็น (ใช้ร่วมกันทุกคน)',
-        _userNameController,
-        Icons.smartphone,
-      ),
-      const Divider(color: Colors.white10, height: 32),
-      _buildInfoSetting(
-        'หมายเลขติดต่อหลัก',
-        _phoneController.text.isEmpty ? 'ไม่ได้ระบุ' : _phoneController.text,
-        Icons.phone,
-      ),
-      const Divider(color: Colors.white10, height: 32),
-      _buildActionSetting(
-        'แก้ไขรูปโปรไฟล์',
-        'เลือกรูปภาพจากแกลเลอรี่',
-        Icons.photo_camera,
-        () => _changeProfilePicture(),
-      ),
-    ]);
+    return Consumer(
+      builder: (context, ref, child) {
+        final user = ref.watch(currentUserProvider);
+        final authActions = ref.watch(authActionsProvider);
+        
+        return _buildSettingsCard([
+          // User Info Section
+          if (user != null) ...[
+            _buildInfoSetting(
+              'User Name',
+              user.name,
+              Icons.person,
+            ),
+            const Divider(color: Colors.white10, height: 32),
+            _buildInfoSetting(
+              'Email',
+              user.email,
+              Icons.email,
+            ),
+            const Divider(color: Colors.white10, height: 32),
+            _buildInfoSetting(
+              'Phone',
+              user.phone ?? 'Not provided',
+              Icons.phone,
+            ),
+            const Divider(color: Colors.white10, height: 32),
+            _buildInfoSetting(
+              'Role',
+              _getRoleDisplayName(user.role),
+              Icons.badge,
+            ),
+            const Divider(color: Colors.white10, height: 32),
+            _buildInfoSetting(
+              'Sync Status',
+              user.isSyncedToCloud ? 'Synced ☁️' : 'Pending ⏳',
+              Icons.sync,
+            ),
+            const Divider(color: Colors.white10, height: 32),
+            // Update Profile Action
+            _buildActionSetting(
+              'Update Profile',
+              'Edit your profile information',
+              Icons.edit,
+              () => _showUpdateProfileDialog(authActions),
+            ),
+            const Divider(color: Colors.white10, height: 32),
+            // Sync to Cloud Action
+            _buildActionSetting(
+              'Sync to Cloud',
+              'Upload profile changes to cloud',
+              Icons.cloud_upload,
+              () => _syncToCloud(authActions),
+            ),
+            const Divider(color: Colors.white10, height: 32),
+            // Sign Out Action
+            _buildActionSetting(
+              'Sign Out',
+              'Sign out from your account',
+              Icons.logout,
+              () => _showSignOutDialog(authActions),
+            ),
+          ] else ...[
+            _buildActionSetting(
+              'Sign In',
+              'Sign in to sync your data',
+              Icons.login,
+              () => _navigateToLogin(),
+            ),
+          ],
+          const Divider(color: Colors.white10, height: 32),
+          _buildRoleSelectionSetting(),
+          const Divider(color: Colors.white10, height: 32),
+          _buildTextFieldSetting(
+            'Device Name',
+            'Name visible to other devices',
+            _userNameController,
+            Icons.smartphone,
+          ),
+        ]);
+      },
+    );
   }
 
   Widget _buildSecuritySettings() {
@@ -1428,6 +1488,162 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
       context: context,
       applicationName: 'Off-Grid SOS',
       applicationVersion: '1.0.0',
+    );
+  }
+
+  String _getRoleDisplayName(String role) {
+    switch (role) {
+      case 'rescuer':
+        return 'Rescuer 🚑';
+      case 'sos_user':
+        return 'SOS User 🚨';
+      default:
+        return 'Normal User 👤';
+    }
+  }
+
+  void _showUpdateProfileDialog(AuthActions authActions) {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    String selectedRole = 'normal';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A3E),
+        title: const Text('Update Profile', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                labelStyle: TextStyle(color: Colors.white70),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: phoneController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Phone',
+                labelStyle: TextStyle(color: Colors.white70),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: selectedRole,
+              style: const TextStyle(color: Colors.white),
+              dropdownColor: const Color(0xFF2A2A3E),
+              decoration: const InputDecoration(
+                labelText: 'Role',
+                labelStyle: TextStyle(color: Colors.white70),
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'normal', child: Text('Normal User')),
+                DropdownMenuItem(value: 'rescuer', child: Text('Rescuer')),
+                DropdownMenuItem(value: 'sos_user', child: Text('SOS User')),
+              ],
+              onChanged: (value) => selectedRole = value ?? 'normal',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await authActions.updateProfile(
+                name: nameController.text.isEmpty ? null : nameController.text,
+                phone: phoneController.text.isEmpty ? null : phoneController.text,
+                role: selectedRole,
+              );
+              
+              if (mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? 'Profile updated!' : 'Update failed'),
+                    backgroundColor: success ? Colors.green : Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _syncToCloud(AuthActions authActions) async {
+    try {
+      await authActions.syncToCloud();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile synced to cloud!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSignOutDialog(AuthActions authActions) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A3E),
+        title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Are you sure you want to sign out? Your data will remain on this device.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await authActions.signOut();
+              if (mounted) {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 }

@@ -174,12 +174,13 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
 
   Widget _buildMessageBubble(dynamic message) {
     final isMe = message.senderId == 'me'; // Adjust based on your message model
+    final messageType = message.type ?? 'text';
     
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.all(messageType == 'text' ? 16 : 8),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
@@ -208,20 +209,23 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message.content ?? 'Empty message',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-              ),
-            ),
+            // Message Content based on type
+            _buildMessageContent(message, messageType),
             const SizedBox(height: 4),
-            Text(
-              _formatTime(message.timestamp),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withOpacity(0.7),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatTime(message.timestamp),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Status indicator
+                _buildStatusIndicator(message.status ?? 'pending'),
+              ],
             ),
           ],
         ),
@@ -359,38 +363,7 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
     );
   }
 
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            size: 60,
-            color: Color(0xFFFF6B6B),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Something went wrong',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.white70,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            error,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.5),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
@@ -454,5 +427,195 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
     } else {
       return '${timestamp.day}/${timestamp.month}';
     }
+  }
+
+  Widget _buildMessageContent(dynamic message, String messageType) {
+    switch (messageType) {
+      case 'image':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey[800],
+              ),
+              child: message.filePath != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        message.filePath!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => 
+                            const Icon(Icons.image, size: 60, color: Colors.white54),
+                      ),
+                    )
+                  : const Icon(Icons.image, size: 60, color: Colors.white54),
+            ),
+            if (message.content?.isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              Text(
+                message.content!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ],
+        );
+      
+      case 'video':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey[800],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      color: Colors.black,
+                      child: const Icon(Icons.play_circle_outline, 
+                          size: 60, color: Colors.white),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        '📹 Video',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (message.content?.isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              Text(
+                message.content!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ],
+        );
+      
+      case 'location':
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.location_on, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message.content ?? 'Location shared',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      
+      case 'sos':
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red, width: 1),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.emergency, color: Colors.red, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message.content ?? '🚨 SOS EMERGENCY',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      
+      default: // text
+        return Text(
+          message.content ?? 'Empty message',
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+          ),
+        );
+    }
+  }
+
+  Widget _buildStatusIndicator(String status) {
+    IconData icon;
+    Color color;
+    
+    switch (status) {
+      case 'sent':
+        icon = Icons.check;
+        color = Colors.white54;
+        break;
+      case 'delivered':
+        icon = Icons.done_all;
+        color = Colors.white54;
+        break;
+      case 'read':
+        icon = Icons.done_all;
+        color = const Color(0xFF00D4FF);
+        break;
+      case 'synced':
+        icon = Icons.cloud_done;
+        color = Colors.green;
+        break;
+      case 'failed':
+        icon = Icons.error;
+        color = Colors.red;
+        break;
+      default: // pending
+        icon = Icons.schedule;
+        color = Colors.orange;
+        break;
+    }
+    
+    return Icon(
+      icon,
+      size: 14,
+      color: color,
+    );
   }
 }
