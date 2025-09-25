@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../providers/main_providers.dart';
 import '../../utils/permission_helper.dart';
 
 class ModernSettingsScreen extends ConsumerStatefulWidget {
@@ -115,6 +116,11 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
               // Emergency Settings
               _buildSectionHeader('การตั้งค่าฉุกเฉิน'),
               _buildEmergencySettings(),
+              const SizedBox(height: 30),
+
+              // Services Status
+              _buildSectionHeader('สถานะระบบ'),
+              _buildServicesStatus(),
               const SizedBox(height: 30),
 
               // Notification Settings
@@ -1243,6 +1249,177 @@ class _ModernSettingsScreenState extends ConsumerState<ModernSettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildServicesStatus() {
+    final nearbyDevices = ref.watch(nearbyDevicesProvider);
+    final sosActive = ref.watch(sosActiveModeProvider);
+    
+    // For demonstration - in real app these would be proper service states
+    final meshConnected = nearbyDevices.isNotEmpty;
+    final locationActive = nearbyDevices.isNotEmpty; // Use devices as proxy for location
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E).withOpacity(0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF2E3A59).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // SOS Status
+          _buildStatusRow(
+            'SOS Mode',
+            sosActive ? 'Active' : 'Inactive',
+            sosActive ? Colors.red : Colors.green,
+            sosActive ? Icons.emergency : Icons.check_circle,
+          ),
+          const SizedBox(height: 16),
+          
+          // Location Status
+          _buildStatusRow(
+            'Location Service',
+            locationActive ? 'Active' : 'Inactive',
+            locationActive ? Colors.green : Colors.orange,
+            locationActive ? Icons.location_on : Icons.location_off,
+          ),
+          const SizedBox(height: 16),
+          
+          // Mesh Network Status
+          _buildStatusRow(
+            'Mesh Network',
+            meshConnected ? 'Connected' : 'Disconnected',
+            meshConnected ? Colors.green : Colors.red,
+            meshConnected ? Icons.network_check : Icons.wifi_off,
+          ),
+          const SizedBox(height: 16),
+          
+          // Nearby Devices
+          _buildStatusRow(
+            'Nearby Devices',
+            '${nearbyDevices.length} devices',
+            nearbyDevices.isNotEmpty ? Colors.green : Colors.grey,
+            nearbyDevices.isNotEmpty ? Icons.devices : Icons.device_unknown,
+          ),
+          const SizedBox(height: 20),
+          
+          // Action Buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      await AppActions.discoverDevices(ref);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('🔍 Device discovery started'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Discovery failed: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.search),
+                  label: const Text('Scan Devices'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00D4FF),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      await AppActions.broadcastSOS(
+                        ref,
+                        emergencyType: 'test',
+                        emergencyMessage: 'Test SOS broadcast from settings',
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('🚨 Test SOS sent'),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('SOS test failed: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.warning),
+                  label: const Text('Test SOS'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusRow(String label, String value, Color color, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.5)),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

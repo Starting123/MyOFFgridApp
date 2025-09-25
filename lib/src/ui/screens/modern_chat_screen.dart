@@ -400,9 +400,23 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
     _messageController.clear();
 
     try {
-      // Send via MultimediaChatService
-      final chatService = ref.read(multimediaChatServiceProvider);
-      await chatService.sendTextMessage('default', message);
+      // Send message using AppActions
+      await AppActions.sendTextMessage(
+        ref,
+        'broadcast', // conversationId - Send to all connected devices
+        message, // content
+      );
+      
+      // Show success feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📨 Message sent to nearby devices'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
       
       // Scroll to bottom
       if (_scrollController.hasClients) {
@@ -413,6 +427,7 @@ class _ModernChatScreenState extends ConsumerState<ModernChatScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Send message error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

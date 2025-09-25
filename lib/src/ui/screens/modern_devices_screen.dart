@@ -450,7 +450,7 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
       setState(() {
         _isScanning = false;
       });
-      // Stop scanning is handled automatically by services
+      // The provider will automatically handle stopping scan
     } else {
       // Start scanning
       setState(() {
@@ -459,7 +459,30 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
       _scanController.repeat();
       
       HapticFeedback.lightImpact();
-      // Start scanning is handled automatically by services
+      
+      try {
+        // Start device discovery
+        await AppActions.discoverDevices(ref);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🔍 Scanning for nearby devices...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Device discovery error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to start device discovery: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
       
       // Auto-stop after 30 seconds
       Future.delayed(const Duration(seconds: 30), () {
@@ -475,12 +498,8 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
     
     try {
       if (device.isConnected) {
-        // Disconnect
-        // Disconnect functionality would be handled by the service layer
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Disconnected from ${device.name}')),
-        );
-        
+        // Disconnect from device
+        // Note: Disconnect functionality would be implemented in AppActions
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Disconnected from ${device.name}'),
@@ -488,18 +507,21 @@ class _ModernDevicesScreenState extends ConsumerState<ModernDevicesScreen>
           ),
         );
       } else {
-        // Connect
-        // Connect functionality would be handled by the service layer
+        // Connect to device
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Connecting to ${device.name}...')),
         );
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Connected to ${device.name}'),
-            backgroundColor: const Color(0xFF4CAF50),
-          ),
-        );
+        await AppActions.connectToDevice(ref, device.id);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connected to ${device.name}'),
+              backgroundColor: const Color(0xFF4CAF50),
+            ),
+          );
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../providers/main_providers.dart';
 import '../../models/chat_models.dart';
+import '../../services/location_service.dart';
 
 class ModernSOSScreen extends ConsumerStatefulWidget {
   const ModernSOSScreen({super.key});
@@ -37,6 +39,126 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
   void dispose() {
     _emergencyController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showCustomSOSDialog() async {
+    final TextEditingController messageController = TextEditingController();
+    String emergencyType = 'general';
+    
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('🚨 Emergency SOS'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Select emergency type:'),
+                    const SizedBox(height: 10),
+                    DropdownButton<String>(
+                      value: emergencyType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'general', child: Text('🚨 General Emergency')),
+                        DropdownMenuItem(value: 'medical', child: Text('🏥 Medical Emergency')),
+                        DropdownMenuItem(value: 'fire', child: Text('🔥 Fire Emergency')),
+                        DropdownMenuItem(value: 'accident', child: Text('🚗 Accident')),
+                        DropdownMenuItem(value: 'natural', child: Text('🌪️ Natural Disaster')),
+                        DropdownMenuItem(value: 'security', child: Text('🔒 Security Emergency')),
+                      ],
+                      onChanged: (String? value) {
+                        if (value != null) {
+                          setState(() {
+                            emergencyType = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: messageController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Emergency Message (Optional)',
+                        hintText: 'Describe your emergency...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('🚨 SEND SOS'),
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    
+                    // Get current location
+                    Position? position;
+                    try {
+                      position = await Geolocator.getCurrentPosition(
+                        desiredAccuracy: LocationAccuracy.high,
+                        timeLimit: const Duration(seconds: 10),
+                      );
+                    } catch (e) {
+                      debugPrint('Location error: $e');
+                    }
+
+                    // Broadcast SOS
+                    try {
+                      await AppActions.broadcastSOS(
+                        ref,
+                        emergencyType: emergencyType,
+                        emergencyMessage: messageController.text.isNotEmpty 
+                          ? messageController.text 
+                          : 'Emergency help needed! SOS activated.',
+                        latitude: position?.latitude,
+                        longitude: position?.longitude,
+                      );
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('🚨 SOS broadcasted to nearby devices'),
+                            backgroundColor: Colors.red,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('SOS broadcast error: $e');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to broadcast SOS: $e'),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -184,9 +306,13 @@ class _ModernSOSScreenState extends ConsumerState<ModernSOSScreen>
         HapticFeedback.heavyImpact();
         final isCurrentlyActive = ref.read(sosActiveModeProvider);
         if (isCurrentlyActive) {
+          // Deactivate SOS
           AppActions.deactivateSOS(ref);
         } else {
+          // Activate SOS with custom message
           AppActions.activateSOS(ref);
+          // Show custom SOS dialog
+          await _showCustomSOSDialog();
         }
       },
       child: AnimatedBuilder(
