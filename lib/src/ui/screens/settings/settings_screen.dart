@@ -12,8 +12,28 @@ final settingsCurrentUserProvider = Provider<Map<String, dynamic>>((ref) {
   };
 });
 
-final encryptionEnabledProvider = StateProvider<bool>((ref) => true);
-final cloudSyncEnabledProvider = StateProvider<bool>((ref) => false);
+// Settings state notifiers
+class SettingsNotifier extends Notifier<Map<String, bool>> {
+  @override
+  Map<String, bool> build() {
+    return {
+      'encryption': true,
+      'cloudSync': false,
+    };
+  }
+  
+  void toggleEncryption() {
+    state = {...state, 'encryption': !state['encryption']!};
+  }
+  
+  void toggleCloudSync() {
+    state = {...state, 'cloudSync': !state['cloudSync']!};
+  }
+}
+
+final settingsProvider = NotifierProvider<SettingsNotifier, Map<String, bool>>(() {
+  return SettingsNotifier();
+});
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -22,8 +42,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final currentUser = ref.watch(settingsCurrentUserProvider);
-    final encryptionEnabled = ref.watch(encryptionEnabledProvider);
-    final cloudSyncEnabled = ref.watch(cloudSyncEnabledProvider);
+    final settings = ref.watch(settingsProvider);
+    final encryptionEnabled = settings['encryption'] ?? true;
+    final cloudSyncEnabled = settings['cloudSync'] ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -140,7 +161,7 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: const Text('Encrypt all messages and media'),
                 value: encryptionEnabled,
                 onChanged: (value) {
-                  ref.read(encryptionEnabledProvider.notifier).state = value;
+                  ref.read(settingsProvider.notifier).toggleEncryption();
                   _toggleEncryption(value);
                 },
                 secondary: const Icon(Icons.security),
@@ -151,7 +172,7 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: const Text('Sync data when internet is available'),
                 value: cloudSyncEnabled,
                 onChanged: (value) {
-                  ref.read(cloudSyncEnabledProvider.notifier).state = value;
+                  ref.read(settingsProvider.notifier).toggleCloudSync();
                   _toggleCloudSync(value);
                 },
                 secondary: const Icon(Icons.cloud),

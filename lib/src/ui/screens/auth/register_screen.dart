@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
+import '../../../models/user_model.dart' hide UserRole;
+import '../../../services/auth_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -367,11 +369,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     required String password,
     required UserRole role,
   }) async {
-    // TODO: Implement actual registration logic
-    // This would integrate with your auth_service
-    await Future.delayed(const Duration(seconds: 2)); // Simulate API call
-    
-    // Mock success - replace with actual service call
-    print('Registering user: $name, $phone, $role');
+    try {
+      final authService = AuthService.instance;
+      
+      // Register user via AuthService
+      final registeredUser = await authService.signUp(
+        name: name,
+        email: phone, // Using phone as email for simplicity
+        phone: phone,
+      );
+      
+      if (registeredUser == null) {
+        throw Exception('Registration failed');
+      }
+      
+      // TODO: Store password securely and role information
+      // For now, we'll just store the basic user info
+      print('User registered successfully: ${registeredUser.name} with role: ${role.name}');
+      
+      if (mounted) {
+        // Navigate to main app after successful registration
+        Navigator.of(context).pushReplacementNamed('/main');
+      }
+    } catch (e) {
+      // The error will be handled by the calling function
+      rethrow;
+    }
   }
 }

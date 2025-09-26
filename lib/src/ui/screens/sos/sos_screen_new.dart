@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
 
-// Mock SOS state provider - replace with actual service provider
-final sosStatusProvider = StateProvider<bool>((ref) => false);
+// Import the actual SOS provider
+import '../../../providers/enhanced_sos_provider.dart';
+
+// SOS State Provider
+final sosProvider = AsyncNotifierProvider<SOSNotifier, SOSAppState>(() {
+  return SOSNotifier();
+});
+
+// Note: sosStatusProvider removed - using sosProvider instead
 
 class SOSScreenNew extends ConsumerStatefulWidget {
   const SOSScreenNew({Key? key}) : super(key: key);
@@ -42,10 +49,37 @@ class _SOSScreenNewState extends ConsumerState<SOSScreenNew>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sosStatus = ref.watch(sosStatusProvider);
+    final sosStateAsync = ref.watch(sosProvider);
 
+    return sosStateAsync.when(
+      data: (sosState) => _buildSOSScreen(context, theme, sosState),
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error, size: 64, color: theme.colorScheme.error),
+              const SizedBox(height: 16),
+              Text('SOS Service Error: $error'),
+              ElevatedButton(
+                onPressed: () => ref.refresh(sosProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSOSScreen(BuildContext context, ThemeData theme, SOSAppState sosState) {
+    final isSOSActive = sosState.isSOSActive;
+    
     // Start/stop pulse animation based on SOS status
-    if (sosStatus) {
+    if (isSOSActive) {
       _pulseController.repeat(reverse: true);
     } else {
       _pulseController.stop();
@@ -56,13 +90,13 @@ class _SOSScreenNewState extends ConsumerState<SOSScreenNew>
       appBar: AppBar(
         title: const Text('Emergency SOS'),
         centerTitle: true,
-        backgroundColor: sosStatus ? Colors.red : null,
-        foregroundColor: sosStatus ? Colors.white : null,
+        backgroundColor: isSOSActive ? Colors.red : null,
+        foregroundColor: isSOSActive ? Colors.white : null,
       ),
       body: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          gradient: sosStatus
+          gradient: isSOSActive
               ? LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -80,9 +114,9 @@ class _SOSScreenNewState extends ConsumerState<SOSScreenNew>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 40),
-                _buildSOSButton(context, theme, sosStatus),
+                _buildSOSButton(context, theme, isSOSActive),
                 const SizedBox(height: 40),
-                _buildStatusText(context, theme, sosStatus),
+                _buildStatusText(context, theme, isSOSActive),
                 const SizedBox(height: 40),
                 _buildInstructions(context, theme),
                 const Spacer(),
@@ -400,12 +434,11 @@ class _SOSScreenNewState extends ConsumerState<SOSScreenNew>
     );
   }
 
-  void _toggleSOS() {
-    final currentStatus = ref.read(sosStatusProvider);
-    ref.read(sosStatusProvider.notifier).state = !currentStatus;
+  void _toggleSOS() async {
+    final sosNotifier = ref.read(sosProvider.notifier);
+    final currentState = await ref.read(sosProvider.future);
     
-    // TODO: Integrate with actual SOS service
-    if (!currentStatus) {
+    if (!currentState.isSOSActive) {
       _startSOSBroadcast();
     } else {
       _stopSOSBroadcast();
@@ -413,29 +446,55 @@ class _SOSScreenNewState extends ConsumerState<SOSScreenNew>
   }
 
   Future<void> _startSOSBroadcast() async {
-    // TODO: Implement SOS broadcast with role_service and nearby_service
-    print('Starting SOS broadcast...');
-    
-    // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('SOS signal activated!'),
-        backgroundColor: Colors.red,
-      ),
-    );
+    try {
+      final sosNotifier = ref.read(sosProvider.notifier);
+      await sosNotifier.activateVictimMode('EMERGENCY: Need immediate assistance!');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🚨 SOS signal activated! Broadcasting to nearby devices...'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to activate SOS: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _stopSOSBroadcast() async {
-    // TODO: Implement stopping SOS broadcast
-    print('Stopping SOS broadcast...');
-    
-    // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('SOS signal deactivated'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    try {
+      final sosNotifier = ref.read(sosProvider.notifier);
+      sosNotifier.disableSOSMode();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ SOS signal deactivated'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to deactivate SOS: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _callEmergencyNumber(String number) async {

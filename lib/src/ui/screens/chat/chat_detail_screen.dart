@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
+import '../../../models/chat_models.dart' as models;
+import '../../../providers/chat_providers.dart';
+import '../../../services/multimedia_chat_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
@@ -18,45 +22,41 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
 class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  late final MultimediaChatService _multimediaService;
   
-  // Mock messages - replace with actual chat service
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'id': '1',
-      'message': 'Hello, I need immediate assistance!',
-      'isMe': false,
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 10)),
-      'status': MessageStatus.synced,
-    },
-    {
-      'id': '2',
-      'message': 'We received your signal. What\'s your exact location?',
-      'isMe': true,
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 9)),
-      'status': MessageStatus.synced,
-    },
-    {
-      'id': '3',
-      'message': 'I\'m near the old bridge, about 500m from the main road',
-      'isMe': false,
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 8)),
-      'status': MessageStatus.synced,
-    },
-    {
-      'id': '4',
-      'message': 'Copy that. We are dispatching a team now. ETA 5 minutes.',
-      'isMe': true,
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 7)),
-      'status': MessageStatus.synced,
-    },
-    {
-      'id': '5',
-      'message': 'Thank you! I can see some lights approaching.',
-      'isMe': false,
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 2)),
-      'status': MessageStatus.synced,
-    },
-  ];
+  // Convert models.MessageStatus to UI MessageStatus
+  MessageStatus _convertMessageStatus(models.MessageStatus status) {
+    switch (status) {
+      case models.MessageStatus.sending:
+        return MessageStatus.pending;
+      case models.MessageStatus.sent:
+        return MessageStatus.sent;
+      case models.MessageStatus.delivered:
+      case models.MessageStatus.read:
+        return MessageStatus.sent;
+      case models.MessageStatus.synced:
+        return MessageStatus.synced;
+      case models.MessageStatus.failed:
+        return MessageStatus.failed;
+    }
+  }
+  
+  // Using real messages from database via providers
+
+  @override
+  void initState() {
+    super.initState();
+    _multimediaService = MultimediaChatService();
+    _initializeService();
+  }
+
+  Future<void> _initializeService() async {
+    try {
+      await _multimediaService.initialize();
+    } catch (e) {
+      debugPrint('Failed to initialize multimedia service: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -69,6 +69,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final role = widget.user['role'] as UserRole;
+    final userId = widget.user['id'] as String;
+    
+    final messagesAsync = ref.watch(chatMessagesProvider(userId));
 
     return Scaffold(
       appBar: AppBar(
@@ -113,19 +116,31 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return MessageBubble(
-                  message: message['message'],
-                  isMe: message['isMe'],
-                  status: message['status'],
-                  timestamp: message['timestamp'],
-                );
-              },
+            child: messagesAsync.when(
+              data: (messages) => ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message = messages[index];
+                  return _buildMessageBubble(message);
+                },
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error, size: 48, color: theme.colorScheme.error),
+                    const SizedBox(height: 16),
+                    Text('Failed to load messages: $error'),
+                    ElevatedButton(
+                      onPressed: () => ref.refresh(chatMessagesProvider(userId)),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           _buildMessageInput(context, theme),
@@ -185,45 +200,334 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
+  Widget _buildMessageBubble(models.ChatMessage message) {
+    final theme = Theme.of(context);
+    final isMe = message.senderId == 'me'; // TODO: Replace with actual current user ID
+    
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: message.isEmergency 
+                ? Colors.red.shade100
+                : (isMe
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.surfaceVariant),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMe ? 16 : 4),
+              bottomRight: Radius.circular(isMe ? 4 : 16),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Emergency indicator
+              if (message.isEmergency) ...[
+                Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.red, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'EMERGENCY',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+              
+              // Content based on message type
+              _buildMessageContent(message, theme, isMe),
+              
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatTime(message.timestamp),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isMe
+                          ? theme.colorScheme.onPrimary.withOpacity(0.7)
+                          : theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                    ),
+                  ),
+                  if (isMe) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      _getStatusIcon(_convertMessageStatus(message.status)),
+                      size: 12,
+                      color: isMe
+                          ? theme.colorScheme.onPrimary.withOpacity(0.7)
+                          : theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageContent(models.ChatMessage message, ThemeData theme, bool isMe) {
+    switch (message.type) {
+      case models.MessageType.text:
+        return Text(
+          message.content,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: message.isEmergency
+                ? Colors.red.shade900
+                : (isMe
+                    ? theme.colorScheme.onPrimary
+                    : theme.colorScheme.onSurfaceVariant),
+          ),
+        );
+        
+      case models.MessageType.image:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (message.filePath != null && File(message.filePath!).existsSync())
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(message.filePath!),
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 100,
+                      color: theme.colorScheme.errorContainer,
+                      child: Icon(
+                        Icons.broken_image,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              Container(
+                height: 100,
+                color: theme.colorScheme.errorContainer,
+                child: Icon(
+                  Icons.broken_image,
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+              ),
+            if (message.content.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                message.content,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isMe
+                      ? theme.colorScheme.onPrimary.withOpacity(0.8)
+                      : theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                ),
+              ),
+            ],
+          ],
+        );
+        
+      case models.MessageType.video:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      size: 48,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Video',
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (message.content.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                message.content,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isMe
+                      ? theme.colorScheme.onPrimary.withOpacity(0.8)
+                      : theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                ),
+              ),
+            ],
+          ],
+        );
+        
+      case models.MessageType.file:
+        return Row(
+          children: [
+            Icon(
+              Icons.attach_file,
+              color: isMe
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message.content,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isMe
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        );
+        
+      case models.MessageType.location:
+        return Row(
+          children: [
+            Icon(
+              Icons.location_on,
+              color: Colors.red,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message.content,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isMe
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        );
+        
+      case models.MessageType.sos:
+        return Row(
+          children: [
+            Icon(
+              Icons.sos,
+              color: Colors.red,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message.content,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.red.shade900,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+        
+
+    }
+  }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+    
+    if (difference.inDays > 0) {
+      return '${timestamp.day}/${timestamp.month}';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  IconData _getStatusIcon(MessageStatus status) {
+    switch (status) {
+      case MessageStatus.pending:
+        return Icons.schedule;
+      case MessageStatus.sent:
+        return Icons.check;
+      case MessageStatus.synced:
+        return Icons.done_all;
+      case MessageStatus.failed:
+        return Icons.error_outline;
+    }
+  }
+
   void _sendMessage() {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
 
-    setState(() {
-      _messages.add({
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'message': message,
-        'isMe': true,
-        'timestamp': DateTime.now(),
-        'status': MessageStatus.pending,
-      });
-    });
-
     _messageController.clear();
     _scrollToBottom();
 
-    // TODO: Send message via chat_service
+    // Send message via real service
     _sendMessageToService(message);
   }
 
   Future<void> _sendMessageToService(String message) async {
-    // TODO: Implement actual message sending
-    await Future.delayed(const Duration(seconds: 1));
-    
-    // Simulate message status update
-    setState(() {
-      final lastMessage = _messages.last;
-      lastMessage['status'] = MessageStatus.sent;
-    });
-
-    await Future.delayed(const Duration(seconds: 2));
-    
-    setState(() {
-      final lastMessage = _messages.last;
-      lastMessage['status'] = MessageStatus.synced;
-    });
-
-    print('Message sent: $message');
+    try {
+      final dbService = ref.read(localDatabaseProvider);
+      final userId = widget.user['id'] as String;
+      
+      // Create ChatMessage object
+      final chatMessage = models.ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        senderId: 'me', // TODO: Replace with actual current user ID
+        senderName: 'Me', // TODO: Replace with actual current user name
+        receiverId: userId,
+        content: message,
+        type: models.MessageType.text,
+        status: models.MessageStatus.sending,
+        timestamp: DateTime.now(),
+        isEmergency: false,
+      );
+      
+      // Insert message into database
+      await dbService.insertMessage(chatMessage);
+      
+      // Refresh the messages list
+      ref.invalidate(chatMessagesProvider(userId));
+      
+      // TODO: Send message via P2P service
+      print('Message saved to database: $message');
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send message: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _scrollToBottom() {
@@ -329,15 +633,47 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  void _shareMedia(String type) {
-    // TODO: Implement media sharing
-    print('Sharing $type');
+  Future<void> _shareMedia(String type) async {
+    final userId = widget.user['id'] as String;
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$type sharing not implemented yet'),
-      ),
-    );
+    try {
+      switch (type) {
+        case 'camera':
+          await _multimediaService.sendImageMessage(userId, fromCamera: true);
+          break;
+        case 'gallery':
+          await _multimediaService.sendImageMessage(userId, fromCamera: false);
+          break;
+        case 'video':
+          await _multimediaService.sendVideoMessage(userId, fromCamera: false);
+          break;
+        case 'file':
+          await _multimediaService.sendFileMessage(userId);
+          break;
+      }
+      
+      // Refresh messages after sending media
+      ref.invalidate(chatMessagesProvider(userId));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${type[0].toUpperCase()}${type.substring(1)} shared successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share $type: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showChatOptions(BuildContext context) {
@@ -428,15 +764,34 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  void _shareLocation() {
-    // TODO: Implement location sharing
-    print('Sharing location');
+  Future<void> _shareLocation() async {
+    final userId = widget.user['id'] as String;
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Location sharing not implemented yet'),
-      ),
-    );
+    try {
+      await _multimediaService.sendLocationMessage(userId);
+      
+      // Refresh messages after sending location
+      ref.invalidate(chatMessagesProvider(userId));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location shared successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _blockUser() {

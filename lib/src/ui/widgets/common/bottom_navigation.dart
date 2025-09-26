@@ -55,6 +55,13 @@ class CustomBottomNavigation extends StatelessWidget {
               _buildNavItem(
                 context,
                 3,
+                Icons.radar_outlined,
+                Icons.radar,
+                'Nearby',
+              ),
+              _buildNavItem(
+                context,
+                4,
                 Icons.settings_outlined,
                 Icons.settings,
                 'Settings',

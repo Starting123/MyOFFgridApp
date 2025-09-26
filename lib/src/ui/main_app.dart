@@ -6,6 +6,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
 import 'screens/chat/chat_detail_screen.dart';
 import 'screens/sos/sos_screen_new.dart';
+import 'screens/nearby/nearby_devices_screen_fixed.dart';
 import 'screens/settings/settings_screen.dart';
 import 'widgets/common/bottom_navigation.dart';
 
@@ -150,6 +151,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     const HomeScreen(),
     const SOSScreenNew(),
     const ChatListScreen(),
+    const NearbyDevicesScreenFixed(),
     const SettingsScreen(),
   ];
 
