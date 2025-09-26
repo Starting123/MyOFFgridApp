@@ -18,8 +18,21 @@ final connectionStatusProvider = Provider<Map<String, dynamic>>((ref) {
   };
 });
 
-// SOS status provider - real data from SOS broadcast service
-final sosStatusProvider = Provider<Map<String, dynamic>>((ref) {
+// SOS status provider - real data from SOS broadcast service with stream updates
+final sosStatusProvider = StreamProvider<Map<String, dynamic>>((ref) {
+  final sosService = SOSBroadcastService.instance;
+  
+  // Return initial state and listen to mode changes
+  return sosService.onModeChanged.map((mode) => {
+    'currentMode': mode,
+    'isActive': mode != SOSMode.disabled,
+    'isVictim': mode == SOSMode.victim,
+    'isRescuer': mode == SOSMode.rescuer,
+  }).asBroadcastStream();
+});
+
+// Immediate SOS status provider (non-stream) for instant access
+final immediateSOSStatusProvider = Provider<Map<String, dynamic>>((ref) {
   final sosService = SOSBroadcastService.instance;
   return {
     'currentMode': sosService.currentMode,
