@@ -4,6 +4,7 @@ import '../models/enhanced_message_model.dart';
 import '../services/nearby_service.dart';
 import '../services/location_service.dart';
 import '../services/enhanced_message_queue_service.dart';
+import '../services/local_db_service.dart';
 
 enum SOSMode {
   victim,    // RED mode - person in distress
@@ -19,6 +20,7 @@ class SOSBroadcastService {
   final NearbyService _nearbyService = NearbyService.instance;
   final LocationService _locationService = LocationService.instance;
   final MessageQueueService _messageQueue = MessageQueueService.instance;
+  final LocalDatabaseService _localDb = LocalDatabaseService();
 
   SOSMode _currentMode = SOSMode.disabled;
   Timer? _sosTimer;
@@ -105,21 +107,23 @@ class SOSBroadcastService {
       );
 
       // Create SOS message
-      final sosMessage = EnhancedMessageModel(
+      final sosMessage = ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         senderId: 'current_device',
+        senderName: 'Emergency Device',
+        receiverId: 'broadcast',
         content: _formatSOSMessage(sosBroadcast),
         timestamp: DateTime.now(),
         type: MessageType.sos,
-        status: MessageStatus.pending,
-        isSOS: true,
-        isEncrypted: false, // Emergency messages are not encrypted
+        status: MessageStatus.sending,
         latitude: sosBroadcast.latitude,
         longitude: sosBroadcast.longitude,
+        isEmergency: true,
       );
 
-      // Save to database
-      await _messageQueue.insertPendingMessage(sosMessage);
+      // Save to database and queue
+      _messageQueue.enqueueMessage(sosMessage);
+      await _localDb.insertMessage(sosMessage);
 
       // Broadcast via NearbyService
       await _nearbyService.sendMessage(

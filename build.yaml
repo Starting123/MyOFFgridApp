@@ -1,9 +1,0 @@
-targets:
-  $default:
-    builders:
-      drift_dev:
-        options:
-          named_parameters: true
-          # Use data class name for companion classes
-          use_data_class_name_for_companions: true
-          apply_converters_on_variables: true

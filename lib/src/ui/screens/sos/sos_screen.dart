@@ -12,14 +12,14 @@ final sosProvider = AsyncNotifierProvider<SOSNotifier, SOSAppState>(() {
 
 // Note: sosStatusProvider removed - using sosProvider instead
 
-class SOSScreenNew extends ConsumerStatefulWidget {
-  const SOSScreenNew({Key? key}) : super(key: key);
+class SOSScreen extends ConsumerStatefulWidget {
+  const SOSScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<SOSScreenNew> createState() => _SOSScreenNewState();
+  ConsumerState<SOSScreen> createState() => _SOSScreenState();
 }
 
-class _SOSScreenNewState extends ConsumerState<SOSScreenNew>
+class _SOSScreenState extends ConsumerState<SOSScreen>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -448,7 +448,7 @@ class _SOSScreenNewState extends ConsumerState<SOSScreenNew>
   Future<void> _startSOSBroadcast() async {
     try {
       final sosNotifier = ref.read(sosProvider.notifier);
-      await sosNotifier.activateVictimMode('EMERGENCY: Need immediate assistance!');
+      await sosNotifier.activateVictimMode(emergencyMessage: 'EMERGENCY: Need immediate assistance!');
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/nearby_service.dart';
 import '../services/sos_broadcast_service.dart';
-import '../services/local_database_service.dart';
+import '../services/local_db_service.dart';
 import '../services/p2p_service.dart';
 import '../services/ble_service.dart';
 import '../models/chat_models.dart';

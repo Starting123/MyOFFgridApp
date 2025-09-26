@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
-import 'local_database_service.dart';
+import 'local_db_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();

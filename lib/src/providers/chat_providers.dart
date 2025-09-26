@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chat_models.dart';
-import '../services/local_database_service.dart';
-import '../services/multimedia_chat_service.dart';
+import '../services/local_db_service.dart';
+import '../services/chat_service.dart';
 
 // Provider for accessing the local database service
 final localDatabaseProvider = Provider<LocalDatabaseService>((ref) {

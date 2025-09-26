@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
 import '../../../models/chat_models.dart' as models;
 import '../../../providers/chat_providers.dart';
-import '../../../services/multimedia_chat_service.dart';
+import '../../../services/chat_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {

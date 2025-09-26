@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:http/http.dart' as http;
-import '../data/enhanced_db.dart';
+import 'local_db_service.dart';
 import '../models/enhanced_message_model.dart';
 import '../utils/constants.dart';
 
@@ -10,7 +10,7 @@ class EnhancedCloudSync {
   static final EnhancedCloudSync _instance = EnhancedCloudSync._internal();
   static EnhancedCloudSync get instance => _instance;
   
-  final EnhancedAppDatabase _db = EnhancedAppDatabase();
+  final LocalDatabaseService _db = LocalDatabaseService();
   final http.Client _client = http.Client();
   final String baseUrl;
   
@@ -74,10 +74,10 @@ class EnhancedCloudSync {
       for (final message in unsynedMessages) {
         try {
           await _uploadMessage(message);
-          await _db.markMessageSynced(message.messageId);
+          await _db.markMessageSynced(message.id);
           successCount++;
         } catch (e) {
-          print('❌ Failed to upload message ${message.messageId}: $e');
+          print('❌ Failed to upload message ${message.id}: $e');
         }
       }
 
@@ -123,22 +123,20 @@ class EnhancedCloudSync {
   }
 
   /// Upload a single message to cloud
-  Future<void> _uploadMessage(EnhancedMessage message) async {
+  Future<void> _uploadMessage(ChatMessage message) async {
     final payload = {
-      'id': message.messageId,
+      'id': message.id,
       'senderId': message.senderId,
       'receiverId': message.receiverId,
       'content': message.content,
       'timestamp': message.timestamp.toIso8601String(),
       'type': message.type.toString(),
       'status': message.status.toString(),
-      'isSos': message.isSos,
-      'isEncrypted': message.isEncrypted,
+      'isEmergency': message.isEmergency,
       'filePath': message.filePath,
-      'thumbnailPath': message.thumbnailPath,
       'latitude': message.latitude,
       'longitude': message.longitude,
-      'deliveredAt': message.deliveredAt?.toIso8601String(),
+      'senderName': message.senderName,
       'syncedAt': DateTime.now().toIso8601String(),
     };
 
@@ -161,7 +159,7 @@ class EnhancedCloudSync {
     try {
       // Check if message already exists
       final existingMessages = await _db.getAllMessages();
-      final exists = existingMessages.any((msg) => msg.messageId == data['id']);
+      final exists = existingMessages.any((msg) => msg.id == data['id']);
       
       if (exists) return;
 
@@ -177,24 +175,23 @@ class EnhancedCloudSync {
       );
 
       // Create message model
-      final message = EnhancedMessageModel(
+      final message = ChatMessage(
         id: data['id'],
         senderId: data['senderId'],
+        senderName: data['senderName'] ?? 'Unknown',
         receiverId: data['receiverId'],
         content: data['content'],
         timestamp: DateTime.parse(data['timestamp']),
         type: messageType,
         status: messageStatus,
-        isSOS: data['isSos'] ?? false,
-        isEncrypted: data['isEncrypted'] ?? false,
+        isEmergency: data['isEmergency'] ?? false,
         filePath: data['filePath'],
-        thumbnailPath: data['thumbnailPath'],
         latitude: data['latitude']?.toDouble(),
         longitude: data['longitude']?.toDouble(),
       );
 
       // Insert into database
-      await _db.insertPendingMessage(message);
+      await _db.insertMessage(message);
       await _db.markMessageSynced(message.id);
       
     } catch (e) {
@@ -238,43 +235,19 @@ class EnhancedCloudSync {
     if (!_isOnline) return;
 
     try {
-      final sosBroadcasts = await _db.getActiveSosBroadcasts();
+      // Get emergency messages instead of SOS broadcasts
+      final emergencyMessages = await _db.getEmergencyMessages();
       
-      for (final sos in sosBroadcasts) {
-        await _uploadSOSBroadcast(sos);
+      for (final message in emergencyMessages) {
+        // Convert message to SOS broadcast format if needed
+        print('📡 Processing emergency message: ${message.content}');
       }
     } catch (e) {
       print('❌ Error uploading SOS broadcasts: $e');
     }
   }
 
-  /// Upload a single SOS broadcast to emergency services
-  Future<void> _uploadSOSBroadcast(SosBroadcast sos) async {
-    final payload = {
-      'sosId': sos.sosId,
-      'deviceId': sos.deviceId,
-      'deviceName': sos.deviceName,
-      'message': sos.message,
-      'latitude': sos.latitude,
-      'longitude': sos.longitude,
-      'timestamp': sos.timestamp.toIso8601String(),
-      'isActive': sos.isActive,
-      'priority': 'EMERGENCY',
-    };
 
-    final response = await _client.post(
-      Uri.parse('$baseUrl/emergency/sos'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode(payload),
-    );
-
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      print('🚨 SOS broadcast uploaded to emergency services: ${sos.sosId}');
-    }
-  }
 
   /// Check if currently online
   bool get isOnline => _isOnline;
@@ -282,13 +255,14 @@ class EnhancedCloudSync {
   /// Get sync statistics
   Future<Map<String, int>> getSyncStats() async {
     final allMessages = await _db.getAllMessages();
-    final stats = await _db.getMessageStats();
+    final unsyncedMessages = await _db.getUnsyncedMessages();
+    final emergencyMessages = await _db.getEmergencyMessages();
     
     return {
       'total': allMessages.length,
-      'synced': stats['MessageStatus.synced'] ?? 0,
-      'pending': stats['MessageStatus.pending'] ?? 0,
-      'failed': stats['MessageStatus.failed'] ?? 0,
+      'synced': allMessages.where((m) => m.status == MessageStatus.synced).length,
+      'unsynced': unsyncedMessages.length,
+      'emergency': emergencyMessages.length,
     };
   }
 

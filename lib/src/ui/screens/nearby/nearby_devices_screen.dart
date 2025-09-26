@@ -72,160 +72,30 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> {
   }
 
   Widget _buildDeviceCard(BuildContext context, NearbyDevice device, ThemeData theme) {
-    final role = _getUserRoleFromDevice(device);
+    final role = _getUserRoleFromDeviceRole(device.role);
     final isConnected = device.isConnected;
-    final signalStrength = device.signalStrength.abs(); // Convert to positive percentage
-    final distance = 'Unknown'; // Distance calculation would need to be implemented
-    final lastSeen = device.lastSeen;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => _connectToDevice(device),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  // Role Badge
-                  RoleBadge(
-                    role: role,
-                    size: 48,
-                    showLabel: false,
-                  ),
-                  const SizedBox(width: 16),
-                  
-                  // Device Info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                device.name,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (isConnected)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.green, width: 1),
-                                ),
-                                child: Text(
-                                  'Connected',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        
-                        // Role and Status
-                        Row(
-                          children: [
-                            Icon(
-                              role.icon,
-                              size: 16,
-                              color: role.color,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              role.displayName,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: role.color,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              distance.toString(),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        if (lastSeen != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Last seen: ${_formatLastSeen(lastSeen)}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  
-                  // Signal Strength
-                  Column(
-                    children: [
-                      Icon(
-                        _getSignalIcon(signalStrength),
-                        color: _getSignalColor(signalStrength),
-                        size: 24,
-                      ),
-                      Text(
-                        '${signalStrength}%',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: _getSignalColor(signalStrength),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              
-              if (role == UserRole.sosUser) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning,
-                        color: Colors.red,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'EMERGENCY: Person needs assistance!',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
+      child: ListTile(
+        leading: RoleBadge(
+          role: role,
+          size: 48,
+          showLabel: false,
         ),
+        title: Text(device.name),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(role.displayName),
+            Text('Signal: ${device.signalStrength} dBm'),
+            Text('Last seen: ${_formatLastSeen(device.lastSeen)}'),
+          ],
+        ),
+        trailing: isConnected 
+            ? const Icon(Icons.check_circle, color: Colors.green)
+            : const Icon(Icons.radio_button_unchecked),
+        onTap: () => _connectToDevice(device),
       ),
     );
   }
@@ -302,32 +172,15 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> {
     );
   }
 
-  UserRole _getUserRoleFromDevice(Map<String, dynamic> device) {
-    final roleString = device['role'] as String?;
-    switch (roleString) {
-      case 'sos':
+  UserRole _getUserRoleFromDeviceRole(DeviceRole deviceRole) {
+    switch (deviceRole) {
+      case DeviceRole.sosUser:
         return UserRole.sosUser;
-      case 'rescuer':
+      case DeviceRole.rescuer:
         return UserRole.rescueUser;
-      case 'relay':
+      case DeviceRole.normal:
         return UserRole.relayUser;
-      default:
-        return UserRole.normalUser;
     }
-  }
-
-  IconData _getSignalIcon(int strength) {
-    if (strength >= 80) return Icons.signal_wifi_4_bar;
-    if (strength >= 60) return Icons.signal_wifi_3_bar;
-    if (strength >= 40) return Icons.signal_wifi_2_bar;
-    if (strength >= 20) return Icons.signal_wifi_1_bar;
-    return Icons.signal_wifi_0_bar;
-  }
-
-  Color _getSignalColor(int strength) {
-    if (strength >= 60) return Colors.green;
-    if (strength >= 30) return Colors.orange;
-    return Colors.red;
   }
 
   String _formatLastSeen(DateTime lastSeen) {
@@ -351,10 +204,8 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> {
     });
 
     try {
-      // Use the nearby provider to start scanning
-      await ref.read(nearbyProviderProvider.notifier).startScanning();
-      
-      // Simulate scanning duration
+      // TODO: Implement actual scanning logic
+      // This would connect to nearby service to start device discovery
       await Future.delayed(const Duration(seconds: 3));
     } catch (e) {
       if (mounted) {
@@ -374,12 +225,19 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> {
     }
   }
 
-  void _connectToDevice(Map<String, dynamic> device) {
-    // Navigate to chat with this device
+  void _connectToDevice(NearbyDevice device) {
+    // Convert NearbyDevice to format expected by ChatDetailScreen
+    final deviceMap = {
+      'id': device.id,
+      'name': device.name,
+      'role': _getUserRoleFromDeviceRole(device.role),
+      'isOnline': device.isConnected,
+    };
+    
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ChatDetailScreen(user: device),
+        builder: (context) => ChatDetailScreen(user: deviceMap),
       ),
     );
   }

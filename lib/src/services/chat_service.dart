@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:geolocator/geolocator.dart';
 import '../models/chat_models.dart';
-import 'local_database_service.dart';
+import 'local_db_service.dart';
 import 'nearby_service.dart';
 import 'p2p_service.dart';
 
