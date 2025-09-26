@@ -82,7 +82,9 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildUserProfile(context, currentUser!, theme),
+            currentUser != null 
+              ? _buildUserProfile(context, currentUser, theme)
+              : _buildLoadingUserProfile(theme),
             const SizedBox(height: 24),
             _buildSecuritySection(context, ref, encryptionEnabled, cloudSyncEnabled, theme),
             const SizedBox(height: 24),
@@ -93,6 +95,70 @@ class SettingsScreen extends ConsumerWidget {
             _buildAboutSection(context, theme),
             const SizedBox(height: 24),
             _buildLogoutButton(context, theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingUserProfile(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Icon(Icons.person, size: 30),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 20,
+                        width: 120,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.onSurface.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 16,
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.onSurface.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 24,
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.onSurface.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(),
+                ),
+              ],
+            ),
           ],
         ),
       ),

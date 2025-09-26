@@ -47,10 +47,14 @@ class AuthService {
           updatedAt: DateTime.now(),
           isSyncedToCloud: userData['isSyncedToCloud'] ?? false,
         );
-        _userStreamController.add(_currentUser);
       }
+      
+      // Always emit the current state (null if no user exists)
+      _userStreamController.add(_currentUser);
     } catch (e) {
       print('Error restoring user: $e');
+      // Emit null state even on error
+      _userStreamController.add(null);
     }
   }
 
