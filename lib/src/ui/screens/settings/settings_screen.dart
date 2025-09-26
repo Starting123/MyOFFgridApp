@@ -5,6 +5,7 @@ import '../../../models/user_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/service_coordinator.dart';
 import '../../widgets/common/reusable_widgets.dart';
+import '../../../utils/logger.dart';
 
 // Real user provider connected to auth service
 final currentUserProvider = StreamProvider<UserModel?>((ref) {
@@ -550,19 +551,19 @@ class SettingsScreen extends ConsumerWidget {
 
   void _toggleEncryption(bool enabled) {
     // TODO: Implement encryption toggle with security service
-    print('Encryption ${enabled ? 'enabled' : 'disabled'}');
+    Logger.info('Encryption ${enabled ? 'enabled' : 'disabled'}', 'settings');
   }
 
   void _toggleCloudSync(bool enabled) {
     // TODO: Implement cloud sync toggle with cloud_sync_service
-    print('Cloud sync ${enabled ? 'enabled' : 'disabled'}');
+    Logger.info('Cloud sync ${enabled ? 'enabled' : 'disabled'}', 'settings');
   }
 
   void _toggleNearbyService(BuildContext context, bool enabled) async {
     try {
       if (enabled) {
-        final coordinator = ServiceCoordinator.instance;
         // Re-initialize nearby service if needed
+        ServiceCoordinator.instance;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Nearby Connections enabled')),
         );

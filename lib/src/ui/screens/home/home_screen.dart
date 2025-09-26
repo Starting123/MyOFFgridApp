@@ -7,6 +7,7 @@ import '../../../services/auth_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
 import '../../widgets/app_widgets.dart';
 import '../../theme/app_theme.dart';
+import '../../../utils/logger.dart';
 
 // Real data providers using service coordinator
 final serviceStatusProvider = Provider<Map<String, bool>>((ref) {
@@ -517,6 +518,6 @@ class HomeScreen extends ConsumerWidget {
   void _startChat(BuildContext context, Map<String, dynamic> user) {
     // TODO: Navigate to chat screen with selected user
     Navigator.of(context).pushNamed('/chat', arguments: user);
-    print('Starting chat with ${user['name']}');
+    Logger.info('Starting chat with ${user['name']}', 'chat');
   }
 }

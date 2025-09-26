@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'local_db_service.dart';
 import '../models/enhanced_message_model.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 
 /// Enhanced Cloud Sync Service for syncing messages when internet is available
 class EnhancedCloudSync {
@@ -42,11 +43,11 @@ class EnhancedCloudSync {
       
       if (_isOnline && !wasOnline) {
         // Just came online
-        print('🌐 Internet connection restored - starting sync');
+        Logger.success('Internet connection restored - starting sync', 'cloud');
         await uploadPending();
       } else if (!_isOnline && wasOnline) {
         // Just went offline
-        print('📴 Internet connection lost');
+        Logger.warning('Internet connection lost', 'cloud');
       }
     } catch (e) {
       _isOnline = false;
@@ -56,7 +57,7 @@ class EnhancedCloudSync {
   /// Upload pending messages to cloud
   Future<void> uploadPending() async {
     if (!_isOnline) {
-      print('🔴 No internet connection - cannot upload messages');
+      Logger.warning('No internet connection - cannot upload messages', 'cloud');
       return;
     }
 
@@ -64,11 +65,11 @@ class EnhancedCloudSync {
       final unsynedMessages = await _db.getUnsyncedMessages();
       
       if (unsynedMessages.isEmpty) {
-        print('✅ No messages to sync');
+        Logger.info('No messages to sync', 'cloud');
         return;
       }
 
-      print('📤 Uploading ${unsynedMessages.length} messages to cloud...');
+      Logger.info('Uploading ${unsynedMessages.length} messages to cloud...', 'cloud');
 
       int successCount = 0;
       for (final message in unsynedMessages) {
@@ -77,20 +78,20 @@ class EnhancedCloudSync {
           await _db.markMessageSynced(message.id);
           successCount++;
         } catch (e) {
-          print('❌ Failed to upload message ${message.id}: $e');
+          Logger.error('Failed to upload message ${message.id}: $e', 'cloud');
         }
       }
 
-      print('✅ Successfully uploaded $successCount/${unsynedMessages.length} messages');
+      Logger.success('Successfully uploaded $successCount/${unsynedMessages.length} messages', 'cloud');
     } catch (e) {
-      print('❌ Error during upload: $e');
+      Logger.error('Error during upload: $e', 'cloud');
     }
   }
 
   /// Download new messages from cloud
   Future<void> downloadMessages() async {
     if (!_isOnline) {
-      print('🔴 No internet connection - cannot download messages');
+      Logger.warning('No internet connection - cannot download messages', 'cloud');
       return;
     }
 
@@ -103,7 +104,7 @@ class EnhancedCloudSync {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         
-        print('📥 Downloading ${data.length} messages from cloud...');
+        Logger.info('Downloading ${data.length} messages from cloud...', 'cloud');
 
         int newMessageCount = 0;
         for (final messageData in data) {
@@ -111,14 +112,14 @@ class EnhancedCloudSync {
             await _saveMessageFromCloud(messageData);
             newMessageCount++;
           } catch (e) {
-            print('❌ Failed to save message from cloud: $e');
+            Logger.error('Failed to save message from cloud: $e', 'cloud');
           }
         }
 
-        print('✅ Downloaded $newMessageCount new messages');
+        Logger.success('Downloaded $newMessageCount new messages', 'cloud');
       }
     } catch (e) {
-      print('❌ Error downloading messages: $e');
+      Logger.error('Error downloading messages: $e', 'cloud');
     }
   }
 
@@ -224,10 +225,10 @@ class EnhancedCloudSync {
 
   /// Perform full sync (upload + download)
   Future<void> sync() async {
-    print('🔄 Starting cloud sync...');
+    Logger.info('Starting cloud sync...', 'cloud');
     await uploadPending();
     await downloadMessages();
-    print('✅ Cloud sync completed');
+    Logger.success('Cloud sync completed', 'cloud');
   }
 
   /// Upload SOS broadcasts to cloud for emergency response
@@ -240,10 +241,10 @@ class EnhancedCloudSync {
       
       for (final message in emergencyMessages) {
         // Convert message to SOS broadcast format if needed
-        print('📡 Processing emergency message: ${message.content}');
+        Logger.info('Processing emergency message: ${message.content}', 'cloud');
       }
     } catch (e) {
-      print('❌ Error uploading SOS broadcasts: $e');
+      Logger.error('Error uploading SOS broadcasts: $e', 'cloud');
     }
   }
 

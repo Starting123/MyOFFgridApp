@@ -5,7 +5,6 @@
 
 import 'dart:io';
 import 'dart:async';
-import 'dart:convert';
 
 class TestResult {
   final String testName;
@@ -24,8 +23,8 @@ class TestResult {
 }
 
 void main() async {
-  print('🧪 Off-Grid SOS - Production Integration Tests');
-  print('=' * 60);
+  stdout.writeln('🧪 Off-Grid SOS - Production Integration Tests');
+  stdout.writeln('=' * 60);
   
   final testRunner = IntegrationTestRunner();
   await testRunner.runAllTests();
@@ -110,8 +109,8 @@ class IntegrationTestRunner {
 
   // Helper methods for test execution
   void _printHeader(String title) {
-    print('\n$title');
-    print('=' * title.length);
+    stdout.writeln('\n$title');
+    stdout.writeln('=' * title.length);
   }
 
   void _recordTest(String testName, bool passed, String message) {
@@ -122,7 +121,7 @@ class IntegrationTestRunner {
       duration: Duration(milliseconds: 100),
     );
     _results.add(result);
-    print('${passed ? '✅' : '❌'} $testName: $message');
+    stdout.writeln('${passed ? '✅' : '❌'} $testName: $message');
   }
 
   Future<void> _generateFinalReport() async {
@@ -131,21 +130,21 @@ class IntegrationTestRunner {
     final totalTests = _results.length;
     final passedTests = _results.where((r) => r.passed).length;
     
-    print('Total Tests: $totalTests');
-    print('Passed: $passedTests');
-    print('Failed: ${totalTests - passedTests}');
-    print('Success Rate: ${((passedTests / totalTests) * 100).toStringAsFixed(1)}%');
+    stdout.writeln('Total Tests: $totalTests');
+    stdout.writeln('Passed: $passedTests');
+    stdout.writeln('Failed: ${totalTests - passedTests}');
+    stdout.writeln('Success Rate: ${((passedTests / totalTests) * 100).toStringAsFixed(1)}%');
     
     if (passedTests == totalTests) {
-      print('\n🎉 All tests passed! App is ready for production deployment.');
+      stdout.writeln('\n🎉 All tests passed! App is ready for production deployment.');
     } else {
-      print('\n⚠️ Some tests failed. Review the failures above.');
+      stdout.writeln('\n⚠️ Some tests failed. Review the failures above.');
     }
   }
 }
 
 Future<void> validateProjectStructure() async {
-  print('\n📁 Validating project structure...');
+  stdout.writeln('\n📁 Validating project structure...');
   
   final requiredFiles = [
     'lib/src/services/nearby_service.dart',
@@ -159,12 +158,12 @@ Future<void> validateProjectStructure() async {
   
   for (final file in requiredFiles) {
     final exists = await File(file).exists();
-    print('${exists ? '✅' : '❌'} $file');
+    stdout.writeln('${exists ? '✅' : '❌'} $file');
   }
 }
 
 Future<void> validateDependencies() async {
-  print('\n📦 Validating dependencies...');
+  stdout.writeln('\n📦 Validating dependencies...');
   
   final pubspecFile = File('pubspec.yaml');
   if (await pubspecFile.exists()) {
@@ -181,13 +180,13 @@ Future<void> validateDependencies() async {
     
     for (final dep in requiredDeps) {
       final hasDepency = content.contains(dep);
-      print('${hasDepency ? '✅' : '❌'} $dep');
+      stdout.writeln('${hasDepency ? '✅' : '❌'} $dep');
     }
   }
 }
 
 Future<void> validatePermissions() async {
-  print('\n🔐 Validating Android permissions...');
+  stdout.writeln('\n🔐 Validating Android permissions...');
   
   final manifestFile = File('android/app/src/main/AndroidManifest.xml');
   if (await manifestFile.exists()) {
@@ -203,13 +202,13 @@ Future<void> validatePermissions() async {
     
     for (final permission in requiredPermissions) {
       final hasPermission = content.contains(permission);
-      print('${hasPermission ? '✅' : '❌'} android.permission.$permission');
+      stdout.writeln('${hasPermission ? '✅' : '❌'} android.permission.$permission');
     }
   }
 }
 
 Future<void> generateTestInstructions() async {
-  print('\n📋 Generating test instructions...');
+  stdout.writeln('\n📋 Generating test instructions...');
   
   final instructions = '''
 # 2-Device Testing Instructions
@@ -256,5 +255,5 @@ Future<void> generateTestInstructions() async {
 ''';
 
   await File('TESTING_INSTRUCTIONS.md').writeAsString(instructions);
-  print('✅ Generated TESTING_INSTRUCTIONS.md');
+  stdout.writeln('✅ Generated TESTING_INSTRUCTIONS.md');
 }

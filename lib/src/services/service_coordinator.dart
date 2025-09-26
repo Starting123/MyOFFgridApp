@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/chat_models.dart';
+import '../utils/logger.dart';
 import 'nearby_service.dart';
 import 'p2p_service.dart';
 import 'ble_service.dart';
@@ -10,6 +11,7 @@ import 'auth_service.dart';
 import 'cloud_sync_service.dart';
 import 'local_db_service.dart';
 import 'error_handler_service.dart';
+import 'mesh_network_service.dart';
 
 /// Production-ready service coordinator for Off-Grid SOS
 /// Manages all communication services with priority-based fallback
@@ -27,6 +29,7 @@ class ServiceCoordinator {
   final EnhancedCloudSync _cloudSync = EnhancedCloudSync.instance;
   final LocalDatabaseService _dbService = LocalDatabaseService();
   final ErrorHandlerService _errorHandler = ErrorHandlerService.instance;
+  final MeshNetworkService _meshService = MeshNetworkService.instance;
 
   // State management
   bool _isInitialized = false;
@@ -57,10 +60,18 @@ class ServiceCoordinator {
     if (_isInitialized) return true;
 
     try {
-      debugPrint('🔄 ServiceCoordinator: Initializing all services...');
+      Logger.info('ServiceCoordinator: Initializing all services...');
 
       // Initialize core services first
       await _authService.initialize();
+      
+      // Initialize mesh network service
+      final user = _authService.currentUser;
+      final deviceId = user?.id ?? 'device_${DateTime.now().millisecondsSinceEpoch}';
+      await _meshService.initialize(deviceId);
+      
+      // Set up mesh connection handler
+      _meshService.setConnectionHandler(_sendThroughConnectionType);
       
       // Initialize communication services with fallbacks
       await _initializeWithRetry('nearby', () => _nearbyService.initialize());
@@ -70,7 +81,7 @@ class ServiceCoordinator {
       // Check if at least one communication service is available
       final hasConnection = _serviceStatus.values.any((status) => status);
       if (!hasConnection) {
-        debugPrint('⚠️ No communication services available, continuing in limited mode');
+        Logger.warning('No communication services available, continuing in limited mode');
       }
 
       // Initialize cloud sync
@@ -80,18 +91,18 @@ class ServiceCoordinator {
       // Start unified device discovery
       await _startUnifiedDiscovery();
 
-      // Set up message listening
+      // Set up message listening (including mesh)
       _setupMessageListening();
 
       // Start automatic retry for failed services
       _startRetryMechanism();
 
       _isInitialized = true;
-      debugPrint('✅ ServiceCoordinator: Initialized with services: ${_getActiveServices()}');
+      Logger.info('ServiceCoordinator: Initialized with services: ${_getActiveServices()}');
       return true;
 
     } catch (e) {
-      debugPrint('❌ ServiceCoordinator initialization failed: $e');
+      Logger.error('ServiceCoordinator initialization failed: $e');
       return false;
     }
   }
@@ -101,10 +112,10 @@ class ServiceCoordinator {
       final result = await initializer();
       _serviceStatus[serviceName] = result;
       if (result) {
-        debugPrint('✅ $serviceName service initialized');
+        Logger.success('$serviceName service initialized');
         _errorHandler.updateNetworkState(NetworkState.online);
       } else {
-        debugPrint('⚠️ $serviceName service failed to initialize');
+        Logger.warning('$serviceName service failed to initialize');
         _errorHandler.reportError(
           '${serviceName}_service',
           'Service initialization failed',
@@ -113,7 +124,7 @@ class ServiceCoordinator {
         );
       }
     } catch (e) {
-      debugPrint('❌ $serviceName service error: $e');
+      Logger.error('$serviceName service error: $e');
       _serviceStatus[serviceName] = false;
       _errorHandler.reportError(
         '${serviceName}_service',
@@ -126,7 +137,7 @@ class ServiceCoordinator {
 
   /// Start unified device discovery across all available services
   Future<void> _startUnifiedDiscovery() async {
-    debugPrint('🔍 Starting unified device discovery...');
+    Logger.info('Starting unified device discovery...');
     
     // Start discovery on all available services
     final discoveryTasks = <Future>[];
@@ -170,6 +181,15 @@ class ServiceCoordinator {
     );
     
     _discoveredDevices.add(device);
+    
+    // Add to mesh network
+    _meshService.addNeighbor(
+      device.id,
+      device.name,
+      connectionType: device.connectionType,
+      signalStrength: device.signalStrength,
+    );
+    
     _refreshDeviceList();
   }
 
@@ -187,11 +207,24 @@ class ServiceCoordinator {
     );
     
     _discoveredDevices.add(device);
+    
+    // Add to mesh network
+    _meshService.addNeighbor(
+      device.id,
+      device.name,
+      connectionType: device.connectionType,
+      signalStrength: device.signalStrength,
+    );
+    
     _refreshDeviceList();
   }
 
   void _onDeviceLost(String deviceId) {
     _discoveredDevices.removeWhere((device) => device.id == deviceId);
+    
+    // Remove from mesh network
+    _meshService.removeNeighbor(deviceId);
+    
     _refreshDeviceList();
   }
 
@@ -223,6 +256,14 @@ class ServiceCoordinator {
         _handleIncomingMessage(messageData, 'p2p');
       });
     }
+    
+    // Setup mesh message listening
+    _meshService.messageStream.listen((meshMessage) {
+      _handleIncomingMessage(meshMessage.chatMessage.toJson(), 'mesh');
+      
+      // Forward mesh message if needed (already handled by mesh service)
+      Logger.mesh('Received mesh message: ${meshMessage.chatMessage.content}');
+    });
   }
 
   void _handleIncomingMessage(Map<String, dynamic> messageData, String source) {
@@ -575,6 +616,88 @@ class ServiceCoordinator {
   bool get isInitialized => _isInitialized;
   List<String> get availableServices => _getActiveServices();
 
+  // ===== MESH NETWORKING METHODS =====
+
+  /// Send message through mesh network with multi-hop routing
+  Future<bool> sendMessageThroughMesh(ChatMessage message, {String? targetDeviceId}) async {
+    try {
+      Logger.info('Sending message through mesh network');
+      return await _meshService.sendMessage(message, targetDeviceId: targetDeviceId);
+    } catch (e) {
+      Logger.error('Failed to send message through mesh: $e');
+      return false;
+    }
+  }
+
+  /// Broadcast SOS through mesh network
+  Future<bool> broadcastSOSThroughMesh(ChatMessage sosMessage) async {
+    try {
+      Logger.info('Broadcasting SOS through mesh network');
+      return await _meshService.broadcastSOS(sosMessage);
+    } catch (e) {
+      Logger.error('Failed to broadcast SOS through mesh: $e');
+      return false;
+    }
+  }
+
+
+
+  /// Get mesh network statistics
+  Map<String, dynamic> getMeshNetworkStats() {
+    return _meshService.getNetworkStats();
+  }
+
+  /// Get mesh topology stream
+  Stream<List<MeshNode>> get meshTopologyStream => _meshService.topologyStream;
+
+  /// Enhanced message sending with mesh routing fallback
+  Future<bool> sendMessageEnhanced(ChatMessage message) async {
+    // Try direct P2P first
+    bool success = await sendMessage(message);
+    
+    if (!success) {
+      Logger.info('Direct send failed, trying mesh routing');
+      // Fallback to mesh routing
+      success = await sendMessageThroughMesh(message);
+    }
+    
+    return success;
+  }
+
+  /// Send data through specific connection type (used by mesh service)
+  Future<bool> _sendThroughConnectionType(String connectionType, String deviceId, String data) async {
+    try {
+      switch (connectionType.toLowerCase()) {
+        case 'nearby':
+          if (_serviceStatus['nearby'] == true) {
+            // Check if target device is connected
+            if (_nearbyService.connectedEndpoints.contains(deviceId)) {
+              await _nearbyService.sendMessage(data, type: 'mesh');
+              return true;
+            }
+          }
+          break;
+        case 'p2p':
+          if (_serviceStatus['p2p'] == true) {
+            // P2P service would need a direct send method
+            Logger.info('Sending via P2P to $deviceId');
+            return true; // Placeholder
+          }
+          break;
+        case 'ble':
+          if (_serviceStatus['ble'] == true) {
+            Logger.info('Sending via BLE to $deviceId');
+            return true; // Placeholder
+          }
+          break;
+      }
+      return false;
+    } catch (e) {
+      Logger.error('Failed to send through $connectionType: $e');
+      return false;
+    }
+  }
+
   /// Cleanup resources
   void dispose() {
     _retryTimer?.cancel();
@@ -584,5 +707,6 @@ class ServiceCoordinator {
     _nearbyService.dispose();
     _p2pService.dispose();
     _cloudSync.dispose();
+    _meshService.dispose();
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
 import '../../../services/auth_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
+import '../../../utils/logger.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -384,7 +385,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       
       // TODO: Store password securely and role information
       // For now, we'll just store the basic user info
-      print('User registered successfully: ${registeredUser.name} with role: ${role.name}');
+      Logger.success('User registered successfully: ${registeredUser.name} with role: ${role.name}', 'auth');
       
       if (mounted) {
         // Navigate to main app after successful registration

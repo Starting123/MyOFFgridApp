@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/enhanced_sos_provider.dart';
 import '../../../services/service_coordinator.dart';
 import '../../../models/chat_models.dart';
+import '../../../utils/logger.dart';
 
 // SOS State Provider
 final sosProvider = AsyncNotifierProvider<SOSNotifier, SOSAppState>(() {
@@ -557,7 +558,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
 
   Future<void> _callEmergencyNumber(String number) async {
     // TODO: Implement phone call functionality
-    print('Calling emergency number: $number');
+    Logger.warning('Calling emergency number: $number', 'sos');
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

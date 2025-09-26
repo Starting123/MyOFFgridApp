@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/service_coordinator.dart';
 import '../services/location_service.dart';
+import '../utils/logger.dart';
 
 // Enhanced SOS State Model with production-ready features
 class SOSAppState {
@@ -62,14 +63,44 @@ class SOSNotifier extends AsyncNotifier<SOSAppState> {
 
   @override
   Future<SOSAppState> build() async {
-    // Initialize services if needed
-    if (!_coordinator.isInitialized) {
-      await _coordinator.initializeAll();
-    }
+    // Always return initial state immediately to prevent loading spinner
+    Logger.info('SOS Provider: Building initial state', 'sos');
     
-    return SOSAppState(
-      serviceStatus: _coordinator.getServiceStatus(),
+    // Start background initialization but don't wait for it
+    _initializeServicesAsync();
+    
+    return const SOSAppState(
+      serviceStatus: {'nearby': false, 'p2p': false, 'ble': false, 'cloud': false},
     );
+  }
+
+  // Initialize services asynchronously without blocking UI
+  void _initializeServicesAsync() async {
+    try {
+      Logger.info('SOS Provider: Starting background service initialization', 'sos');
+      
+      // Add timeout to prevent hanging
+      await _coordinator.initializeAll().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          Logger.warning('Service initialization timed out, continuing with limited functionality', 'sos');
+          return false;
+        },
+      );
+      
+      // Update state once services are ready
+      Logger.success('SOS Provider: Services initialized successfully', 'sos');
+      state = AsyncValue.data(SOSAppState(
+        serviceStatus: _coordinator.getServiceStatus(),
+      ));
+    } catch (error) {
+      Logger.error('Failed to initialize services: $error', 'sos');
+      // Continue with limited functionality - SOS can still work
+      state = AsyncValue.data(const SOSAppState(
+        serviceStatus: {'nearby': false, 'p2p': false, 'ble': false, 'cloud': false},
+        lastError: 'Service initialization failed - SOS available in offline mode'
+      ));
+    }
   }
 
   Future<void> toggleSOS() async {

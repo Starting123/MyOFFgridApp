@@ -6,6 +6,7 @@ import '../../../models/chat_models.dart' as models;
 import '../../../providers/chat_providers.dart';
 import '../../../services/chat_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
+import '../../../utils/logger.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> user;
@@ -516,7 +517,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       ref.invalidate(chatMessagesProvider(userId));
       
       // TODO: Send message via P2P service
-      print('Message saved to database: $message');
+      Logger.info('Message saved to database: $message', 'chat');
       
     } catch (e) {
       if (mounted) {
@@ -796,7 +797,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   void _blockUser() {
     // TODO: Implement user blocking
-    print('Blocking user: ${widget.user['name']}');
+    Logger.warning('Blocking user: ${widget.user['name']}', 'chat');
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

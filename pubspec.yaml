@@ -41,6 +41,9 @@ dependencies:
   http: ^1.2.1
   encrypt: ^5.0.3
   mime: ^1.0.5
+  
+  # Encryption
+  pointycastle: ^3.7.3
 
 dev_dependencies:
   flutter_test:

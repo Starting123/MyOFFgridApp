@@ -5,6 +5,7 @@ import '../services/nearby_service.dart';
 import '../services/location_service.dart';
 import '../services/enhanced_message_queue_service.dart';
 import '../services/local_db_service.dart';
+import '../utils/logger.dart';
 
 enum SOSMode {
   victim,    // RED mode - person in distress
@@ -40,7 +41,7 @@ class SOSBroadcastService {
     required String emergencyMessage,
     Duration broadcastInterval = const Duration(minutes: 2),
   }) async {
-    print('🚨 Activating SOS Victim Mode (RED)');
+    Logger.warning('Activating SOS Victim Mode (RED)', 'sos');
     
     _currentMode = SOSMode.victim;
     _modeStreamController.add(_currentMode);
@@ -61,23 +62,23 @@ class SOSBroadcastService {
     // Send initial SOS broadcast
     await _broadcastSOS(emergencyMessage);
     
-    print('🚨 SOS Victim Mode activated - Broadcasting every ${broadcastInterval.inMinutes} minutes');
+    Logger.success('SOS Victim Mode activated - Broadcasting every ${broadcastInterval.inMinutes} minutes', 'sos');
   }
 
   /// Activate SOS rescuer mode (BLUE)
   Future<void> activateRescuerMode() async {
-    print('🔵 Activating SOS Rescuer Mode (BLUE)');
+    Logger.info('Activating SOS Rescuer Mode (BLUE)', 'sos');
     
     _currentMode = SOSMode.rescuer;
     _modeStreamController.add(_currentMode);
     
     // Rescuers listen for SOS broadcasts and send acknowledgments
-    print('🔵 SOS Rescuer Mode activated - Listening for SOS signals');
+    Logger.success('SOS Rescuer Mode activated - Listening for SOS signals', 'sos');
   }
 
   /// Disable SOS mode (return to normal chat)
   void disableSOSMode() {
-    print('⚪ Disabling SOS Mode - Returning to normal chat');
+    Logger.info('Disabling SOS Mode - Returning to normal chat', 'sos');
     
     _currentMode = SOSMode.disabled;
     _modeStreamController.add(_currentMode);
@@ -131,10 +132,10 @@ class SOSBroadcastService {
         type: 'sos_broadcast'
       );
 
-      print('🚨 SOS Broadcast sent: ${sosBroadcast.message}');
+      Logger.warning('SOS Broadcast sent: ${sosBroadcast.message}', 'sos');
       
     } catch (e) {
-      print('❌ Failed to broadcast SOS: $e');
+      Logger.error('Failed to broadcast SOS: $e', 'sos');
     }
   }
 
@@ -149,17 +150,17 @@ class SOSBroadcastService {
           'SOS_LOCATION_UPDATE|${_activeSosId}|${position.latitude}|${position.longitude}|${DateTime.now().toIso8601String()}',
           type: 'sos_location'
         );
-        print('📍 SOS Location updated: ${position.latitude}, ${position.longitude}');
+        Logger.info('SOS Location updated: ${position.latitude}, ${position.longitude}', 'sos');
       }
     } catch (e) {
-      print('❌ Failed to update SOS location: $e');
+      Logger.error('Failed to update SOS location: $e', 'sos');
     }
   }
 
   /// Handle incoming SOS broadcast
   void handleIncomingSOSBroadcast(String message) {
     try {
-      print('🚨 Received SOS Broadcast: $message');
+      Logger.warning('Received SOS Broadcast: $message', 'sos');
       
       if (message.startsWith('SOS_BROADCAST|')) {
         final sosBroadcast = _parseSOSBroadcast(message);
@@ -176,7 +177,7 @@ class SOSBroadcastService {
       }
       
     } catch (e) {
-      print('❌ Error handling SOS broadcast: $e');
+      Logger.error('Error handling SOS broadcast: $e', 'sos');
     }
   }
 
@@ -185,21 +186,21 @@ class SOSBroadcastService {
     try {
       final ackMessage = 'SOS_ACK|${sosBroadcast.id}|RESCUER_RESPONDING|${DateTime.now().toIso8601String()}';
       await _nearbyService.sendMessage(ackMessage, type: 'sos_ack');
-      print('🔵 SOS Acknowledgment sent for: ${sosBroadcast.id}');
+      Logger.info('SOS Acknowledgment sent for: ${sosBroadcast.id}', 'sos');
     } catch (e) {
-      print('❌ Failed to send SOS acknowledgment: $e');
+      Logger.error('Failed to send SOS acknowledgment: $e', 'sos');
     }
   }
 
   /// Handle SOS acknowledgment (for victims)
   void _handleSOSAcknowledgment(String message) {
-    print('✅ Received SOS Acknowledgment: $message');
+    Logger.success('Received SOS Acknowledgment: $message', 'sos');
     // TODO: Show UI notification that help is coming
   }
 
   /// Handle SOS location update
   void _handleSOSLocationUpdate(String message) {
-    print('📍 Received SOS Location Update: $message');
+    Logger.info('Received SOS Location Update: $message', 'sos');
     // TODO: Update victim's location on rescuer's map
   }
 
@@ -234,7 +235,7 @@ class SOSBroadcastService {
       // Example: Battery battery = Battery(); return await battery.batteryLevel;
       return null;
     } catch (e) {
-      print('Error getting battery level: $e');
+      Logger.error('Error getting battery level: $e', 'sos');
       return null;
     }
   }

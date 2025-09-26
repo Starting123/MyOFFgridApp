@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
 import '../../widgets/common/reusable_widgets.dart';
+import '../../../utils/logger.dart';
 
 // Mock providers - replace with actual service providers
 final chatUsersProvider = Provider<List<Map<String, dynamic>>>((ref) {
@@ -243,7 +244,7 @@ class ChatListScreen extends ConsumerWidget {
   Future<void> _refreshChats(WidgetRef ref) async {
     // TODO: Implement chat refresh with chat_service
     await Future.delayed(const Duration(seconds: 1));
-    print('Refreshing chats...');
+    Logger.info('Refreshing chats...', 'chat');
   }
 
   void _showNewChatDialog(BuildContext context) {

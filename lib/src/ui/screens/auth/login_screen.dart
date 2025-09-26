@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../utils/logger.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -219,6 +220,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await Future.delayed(const Duration(seconds: 2)); // Simulate API call
     
     // Mock success - replace with actual service call
-    print('Logging in user: $phone');
+    Logger.info('Logging in user: $phone', 'auth');
   }
 }

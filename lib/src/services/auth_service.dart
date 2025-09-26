@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import '../utils/logger.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -52,7 +53,7 @@ class AuthService {
       // Always emit the current state (null if no user exists)
       _userStreamController.add(_currentUser);
     } catch (e) {
-      print('Error restoring user: $e');
+      Logger.error('Error restoring user: $e');
       // Emit null state even on error
       _userStreamController.add(null);
     }
@@ -85,7 +86,7 @@ class AuthService {
 
       return user;
     } catch (e) {
-      print('Error during signup: $e');
+      Logger.error('Error during signup: $e');
       return null;
     }
   }
@@ -127,7 +128,7 @@ class AuthService {
       
       return null;
     } catch (e) {
-      print('Error during signin: $e');
+      Logger.error('Error during signin: $e');
       return null;
     }
   }
@@ -161,7 +162,7 @@ class AuthService {
       
       return true;
     } catch (e) {
-      print('Error updating profile: $e');
+      Logger.error('Error updating profile: $e');
       return false;
     }
   }
@@ -225,9 +226,9 @@ class AuthService {
       _currentUser = updatedUser;
       _userStreamController.add(_currentUser);
       
-      print('✅ User synced to cloud');
+      Logger.success('User synced to cloud');
     } catch (e) {
-      print('❌ Error syncing user to cloud: $e');
+      Logger.error('Error syncing user to cloud: $e');
     }
   }
 

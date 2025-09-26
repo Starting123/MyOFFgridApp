@@ -40,10 +40,19 @@ class Logger {
     );
   }
   
+  static void success(String message, [String? tag]) {
+    developer.log(
+      message,
+      name: tag ?? _tag,
+      level: 850, // Success level (between info and warning)
+    );
+  }
+  
   // Convenience methods for different components
   static void encryption(String message) => debug(message, 'Encryption');
   static void sos(String message) => debug(message, 'SOS');
   static void chat(String message) => debug(message, 'Chat');
   static void nearby(String message) => debug(message, 'Nearby');
   static void p2p(String message) => debug(message, 'P2P');
+  static void mesh(String message) => debug(message, 'Mesh');
 }
