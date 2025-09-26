@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
+import '../../../models/chat_models.dart';
+import '../../../services/service_coordinator.dart';
 import '../../widgets/common/reusable_widgets.dart';
+import '../../widgets/app_widgets.dart';
+import '../../theme/app_theme.dart';
 
-// Mock data providers - replace with actual service providers
+// Real data providers using service coordinator
+final serviceStatusProvider = Provider<Map<String, bool>>((ref) {
+  return ServiceCoordinator.instance.getServiceStatus();
+});
+
+final discoveredDevicesProvider = StreamProvider<List<NearbyDevice>>((ref) {
+  return ServiceCoordinator.instance.deviceStream;
+});
+
+// Mock current user for demo - replace with auth service
 final currentUserProvider = Provider<Map<String, dynamic>>((ref) {
   return {
     'name': 'John Doe',
@@ -12,75 +25,14 @@ final currentUserProvider = Provider<Map<String, dynamic>>((ref) {
   };
 });
 
-final nearbyUsersProvider = Provider<List<Map<String, dynamic>>>((ref) {
-  final currentUser = ref.watch(currentUserProvider);
-  final currentRole = currentUser['role'] as UserRole;
-  
-  // Show different users based on current user's role
-  if (currentRole == UserRole.rescueUser) {
-    // Rescue users see SOS users
-    return [
-      {
-        'name': 'Alice Emergency',
-        'phone': '+1234567891',
-        'role': UserRole.sosUser,
-        'lastSeen': DateTime.now().subtract(const Duration(minutes: 2)),
-        'distance': '0.5 km',
-      },
-      {
-        'name': 'Bob Crisis',
-        'phone': '+1234567892',
-        'role': UserRole.sosUser,
-        'lastSeen': DateTime.now().subtract(const Duration(minutes: 5)),
-        'distance': '1.2 km',
-      },
-    ];
-  } else if (currentRole == UserRole.sosUser) {
-    // SOS users see rescue users
-    return [
-      {
-        'name': 'Rescue Team Alpha',
-        'phone': '+1234567893',
-        'role': UserRole.rescueUser,
-        'lastSeen': DateTime.now().subtract(const Duration(minutes: 1)),
-        'distance': '0.8 km',
-      },
-      {
-        'name': 'Medical Support',
-        'phone': '+1234567894',
-        'role': UserRole.rescueUser,
-        'lastSeen': DateTime.now().subtract(const Duration(minutes: 3)),
-        'distance': '1.5 km',
-      },
-    ];
-  } else {
-    // Relay users see all types
-    return [
-      {
-        'name': 'Alice Emergency',
-        'phone': '+1234567891',
-        'role': UserRole.sosUser,
-        'lastSeen': DateTime.now().subtract(const Duration(minutes: 2)),
-        'distance': '0.5 km',
-      },
-      {
-        'name': 'Rescue Team Alpha',
-        'phone': '+1234567893',
-        'role': UserRole.rescueUser,
-        'lastSeen': DateTime.now().subtract(const Duration(minutes: 1)),
-        'distance': '0.8 km',
-      },
-    ];
-  }
-});
-
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserProvider);
-    final nearbyUsers = ref.watch(nearbyUsersProvider);
+    final serviceStatus = ref.watch(serviceStatusProvider);
+    final devicesAsync = ref.watch(discoveredDevicesProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -102,15 +54,15 @@ class HomeScreen extends ConsumerWidget {
         onRefresh: () => _refreshDevices(ref),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(DesignTokens.spaceMD),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildUserProfile(context, currentUser, theme),
-              const SizedBox(height: 24),
-              _buildStatusSection(context, currentUser, theme),
-              const SizedBox(height: 24),
-              _buildNearbySection(context, nearbyUsers, theme),
+              const SizedBox(height: DesignTokens.spaceLG),
+              _buildStatusSection(context, currentUser, serviceStatus, theme),
+              const SizedBox(height: DesignTokens.spaceLG),
+              _buildNearbySection(context, devicesAsync, theme),
             ],
           ),
         ),
@@ -121,88 +73,103 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildUserProfile(BuildContext context, Map<String, dynamic> user, ThemeData theme) {
     final role = user['role'] as UserRole;
     
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            RoleBadge(
-              role: role,
-              size: 60,
-              showLabel: false,
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user['name'],
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    user['phone'],
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: role.color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: role.color, width: 1),
-                    ),
-                    child: Text(
-                      role.displayName,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: role.color,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusSection(BuildContext context, Map<String, dynamic> user, ThemeData theme) {
-    final role = user['role'] as UserRole;
-    
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return AppCard(
+      padding: const EdgeInsets.all(DesignTokens.spaceLG),
+      child: Row(
+        children: [
+          RoleBadge(
+            role: role,
+            size: 60,
+            showLabel: false,
+          ),
+          const SizedBox(width: DesignTokens.spaceLG),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.signal_cellular_alt,
-                  color: role.color,
-                ),
-                const SizedBox(width: 8),
                 Text(
-                  'Status',
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  user['name'],
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.spaceXS),
+                Text(
+                  user['phone'],
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.spaceSM),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spaceSM, 
+                    vertical: DesignTokens.spaceXS,
+                  ),
+                  decoration: BoxDecoration(
+                    color: role.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusLG),
+                    border: Border.all(color: role.color, width: 1),
+                  ),
+                  child: Text(
+                    role.displayName,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: role.color,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            _buildRoleStatus(context, role, theme),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildStatusSection(BuildContext context, Map<String, dynamic> user, Map<String, bool> serviceStatus, ThemeData theme) {
+    final role = user['role'] as UserRole;
+    
+    return AppCard(
+      padding: const EdgeInsets.all(DesignTokens.spaceLG),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.signal_cellular_alt,
+                color: role.color,
+              ),
+              const SizedBox(width: DesignTokens.spaceSM),
+              Text(
+                'Status',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: DesignTokens.spaceMD),
+          _buildServiceStatusIndicators(serviceStatus, theme),
+          const SizedBox(height: DesignTokens.spaceMD),
+          _buildRoleStatus(context, role, theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceStatusIndicators(Map<String, bool> serviceStatus, ThemeData theme) {
+    return Wrap(
+      spacing: DesignTokens.spaceSM,
+      runSpacing: DesignTokens.spaceSM,
+      children: serviceStatus.entries.map((entry) {
+        return StatusIndicator(
+          status: entry.value ? StatusType.online : StatusType.offline,
+          text: entry.key.toUpperCase(),
+          size: DesignTokens.iconSM,
+        );
+      }).toList(),
     );
   }
 
@@ -219,20 +186,20 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildSOSStatus(BuildContext context, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(DesignTokens.spaceMD),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red, width: 1),
+        color: AppTheme.emergencyColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMD),
+        border: Border.all(color: AppTheme.emergencyColor, width: 1),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.warning,
-            color: Colors.red,
-            size: 32,
+            color: AppTheme.emergencyColor,
+            size: DesignTokens.iconLG,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: DesignTokens.spaceMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,11 +207,11 @@ class HomeScreen extends ConsumerWidget {
                 Text(
                   'Broadcasting SOS Signal',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.red,
+                    color: AppTheme.emergencyColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: DesignTokens.spaceXS),
                 Text(
                   'Your emergency signal is being broadcast to nearby rescue teams',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -261,20 +228,20 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildRescueStatus(BuildContext context, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(DesignTokens.spaceMD),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue, width: 1),
+        color: AppTheme.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMD),
+        border: Border.all(color: AppTheme.primaryColor, width: 1),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.shield,
-            color: Colors.blue,
-            size: 32,
+            color: AppTheme.primaryColor,
+            size: DesignTokens.iconLG,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: DesignTokens.spaceMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,11 +249,11 @@ class HomeScreen extends ConsumerWidget {
                 Text(
                   'Rescue Mode Active',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.blue,
+                    color: AppTheme.primaryColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: DesignTokens.spaceXS),
                 Text(
                   'Listening for SOS signals and ready to assist',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -303,20 +270,20 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildRelayStatus(BuildContext context, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(DesignTokens.spaceMD),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green, width: 1),
+        color: AppTheme.successColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMD),
+        border: Border.all(color: AppTheme.successColor, width: 1),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.wifi,
-            color: Colors.green,
-            size: 32,
+            color: AppTheme.successColor,
+            size: DesignTokens.iconLG,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: DesignTokens.spaceMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,11 +291,11 @@ class HomeScreen extends ConsumerWidget {
                 Text(
                   'Relaying Signals',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.green,
+                    color: AppTheme.successColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: DesignTokens.spaceXS),
                 Text(
                   'Extending communication range for emergency signals',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -343,14 +310,14 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildNearbySection(BuildContext context, List<Map<String, dynamic>> nearbyUsers, ThemeData theme) {
+  Widget _buildNearbySection(BuildContext context, AsyncValue<List<NearbyDevice>> devicesAsync, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             const Icon(Icons.people_outline),
-            const SizedBox(width: 8),
+            const SizedBox(width: DesignTokens.spaceSM),
             Text(
               'Nearby Users',
               style: theme.textTheme.titleLarge?.copyWith(
@@ -358,74 +325,146 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const Spacer(),
-            Text(
-              '${nearbyUsers.length} found',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            devicesAsync.when(
+              data: (devices) => Text(
+                '${devices.length} found',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
+              loading: () => const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              error: (_, __) => const Icon(Icons.error, size: 16, color: Colors.red),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        if (nearbyUsers.isEmpty)
-          _buildEmptyState(context, theme)
-        else
-          ...nearbyUsers.map((user) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: UserCard(
-                  name: user['name'],
-                  phone: user['phone'],
-                  role: user['role'],
-                  lastSeen: user['lastSeen'],
-                  lastMessage: 'Distance: ${user['distance']}',
-                  onChatTap: () {
-                    // TODO: Navigate to chat with this user
-                    _startChat(context, user);
-                  },
+        const SizedBox(height: DesignTokens.spaceMD),
+        devicesAsync.when(
+          data: (devices) => devices.isEmpty
+              ? _buildEmptyState(context, theme)
+              : Column(
+                  children: devices.map((device) => Padding(
+                    padding: const EdgeInsets.only(bottom: DesignTokens.spaceSM),
+                    child: _buildDeviceCard(context, device, theme),
+                  )).toList(),
                 ),
-              )),
+          loading: () => const Center(
+            child: AppLoadingIndicator(
+              message: 'Scanning for nearby devices...',
+              showMessage: true,
+            ),
+          ),
+          error: (error, stack) => _buildErrorState(context, error.toString(), theme),
+        ),
       ],
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
+  Widget _buildDeviceCard(BuildContext context, NearbyDevice device, ThemeData theme) {
+    final role = _mapDeviceRoleToUserRole(device.role);
+    return AppCard(
+      onTap: () => _startChat(context, {
+        'id': device.id,
+        'name': device.name,
+        'role': _mapDeviceRoleToUserRole(device.role),
+      }),
+      child: Row(
         children: [
-          Icon(
-            Icons.search_off,
+          RoleBadge(
+            role: role,
             size: 48,
-            color: theme.colorScheme.onSurfaceVariant,
+            showLabel: false,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'No users found nearby',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          const SizedBox(width: DesignTokens.spaceMD),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  device.name,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.spaceXS),
+                Text(
+                  '${device.connectionType.toUpperCase()} • Signal: ${device.signalStrength}%',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Make sure Bluetooth and location are enabled',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              StatusIndicator(
+                status: device.isConnected ? StatusType.online : StatusType.offline,
+                showText: false,
+                size: DesignTokens.iconSM,
+              ),
+              const SizedBox(height: DesignTokens.spaceXS),
+              if (device.isSOSActive)
+                const StatusIndicator(
+                  status: StatusType.emergency,
+                  text: 'SOS',
+                  size: DesignTokens.iconXS,
+                ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _buildErrorState(BuildContext context, String error, ThemeData theme) {
+    return EmptyState(
+      icon: Icons.error_outline,
+      title: 'Connection Error',
+      description: 'Unable to scan for nearby devices: $error',
+      actionText: 'Retry',
+      onAction: () async {
+        // Refresh the devices without ref parameter
+        await ServiceCoordinator.instance.initializeAll();
+      },
+    );
+  }
+
+  UserRole _mapDeviceRoleToUserRole(DeviceRole deviceRole) {
+    switch (deviceRole) {
+      case DeviceRole.sosUser:
+        return UserRole.sosUser;
+      case DeviceRole.rescuer:
+        return UserRole.rescueUser;
+      case DeviceRole.normal:
+        return UserRole.relayUser;
+    }
+  }
+
+  Widget _buildEmptyState(BuildContext context, ThemeData theme) {
+    return EmptyState(
+      icon: Icons.people_outline,
+      title: 'No users found nearby',
+      description: 'Make sure Bluetooth and location are enabled, then pull down to refresh.',
+      actionText: 'Refresh',
+      onAction: () async {
+        await ServiceCoordinator.instance.initializeAll();
+      },
+    );
+  }
+
   Future<void> _refreshDevices(WidgetRef ref) async {
-    // TODO: Implement device scanning with nearby_service
-    await Future.delayed(const Duration(seconds: 2));
-    print('Refreshing nearby devices...');
+    try {
+      // Restart the service coordinator to refresh device discovery
+      await ServiceCoordinator.instance.initializeAll();
+      debugPrint('✅ Device discovery refreshed');
+    } catch (e) {
+      debugPrint('❌ Failed to refresh devices: $e');
+    }
   }
 
   void _startChat(BuildContext context, Map<String, dynamic> user) {

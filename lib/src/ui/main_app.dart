@@ -9,6 +9,8 @@ import 'screens/sos/sos_screen.dart';
 import 'screens/nearby/nearby_devices_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'widgets/common/bottom_navigation.dart';
+import 'theme/app_theme.dart';
+import 'widgets/app_widgets.dart';
 
 // Main App with Material 3 Theme
 class OffGridApp extends ConsumerWidget {
@@ -18,8 +20,8 @@ class OffGridApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'Off-Grid SOS & Nearby Share',
-      theme: _buildLightTheme(),
-      darkTheme: _buildDarkTheme(),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       initialRoute: '/auth-check',
       onGenerateRoute: (settings) {
@@ -46,47 +48,7 @@ class OffGridApp extends ConsumerWidget {
     );
   }
 
-  ThemeData _buildLightTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blue,
-        brightness: Brightness.light,
-      ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      cardTheme: CardThemeData(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-    );
-  }
 
-  ThemeData _buildDarkTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blue,
-        brightness: Brightness.dark,
-      ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-      ),
-    );
-  }
 }
 
 // Auth Check Screen - determines which screen to show on app start
@@ -103,7 +65,11 @@ class AuthCheckScreen extends ConsumerWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
-              child: CircularProgressIndicator(),
+              child: AppLoadingIndicator(
+                message: 'Checking authentication...',
+                showMessage: true,
+                size: 48,
+              ),
             ),
           );
         }
@@ -122,7 +88,10 @@ class AuthCheckScreen extends ConsumerWidget {
 
         return const Scaffold(
           body: Center(
-            child: CircularProgressIndicator(),
+            child: AppLoadingIndicator(
+              message: 'Loading...',
+              showMessage: true,
+            ),
           ),
         );
       },

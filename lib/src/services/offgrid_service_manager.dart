@@ -192,25 +192,7 @@ class OffGridServiceManager {
     _messageReceivedController.add(emergencyMessage);
   }
 
-  /// Handle SOS broadcasts and update device status
-  void _handleSOSBroadcast(ChatMessage sosMessage) {
-    // Update device status when SOS message received
-    final deviceIndex = _discoveredDevices.indexWhere(
-      (d) => d.id == sosMessage.senderId,
-    );
-    
-    if (deviceIndex >= 0) {
-      _discoveredDevices[deviceIndex] = _discoveredDevices[deviceIndex].copyWith(
-        role: DeviceRole.sosUser,
-        isSOSActive: true,
-        latitude: sosMessage.latitude,
-        longitude: sosMessage.longitude,
-        lastSeen: DateTime.now(),
-      );
-      
-      _deviceDiscoveredController.add(_discoveredDevices[deviceIndex]);
-    }
-  }
+
 
   /// Handle device lost
   void _handleDeviceLost(String deviceId) {

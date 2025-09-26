@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../models/user_role.dart';
 
 // Import the actual SOS provider
 import '../../../providers/enhanced_sos_provider.dart';
@@ -435,7 +434,6 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
   }
 
   void _toggleSOS() async {
-    final sosNotifier = ref.read(sosProvider.notifier);
     final currentState = await ref.read(sosProvider.future);
     
     if (!currentState.isSOSActive) {
@@ -448,7 +446,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
   Future<void> _startSOSBroadcast() async {
     try {
       final sosNotifier = ref.read(sosProvider.notifier);
-      await sosNotifier.activateVictimMode(emergencyMessage: 'EMERGENCY: Need immediate assistance!');
+      await sosNotifier.activateVictimMode();
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

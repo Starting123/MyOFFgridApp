@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
-import 'local_db_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -10,7 +9,6 @@ class AuthService {
   
   AuthService._internal();
 
-  final LocalDatabaseService _database = LocalDatabaseService();
   UserModel? _currentUser;
   
   final StreamController<UserModel?> _userStreamController = 
