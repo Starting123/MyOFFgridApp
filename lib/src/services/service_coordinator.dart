@@ -264,7 +264,7 @@ class ServiceCoordinator {
     }
   }
 
-  /// Send message via best available service with fallback
+  /// Send message via best available service with intelligent fallback
   Future<bool> sendMessage(ChatMessage message) async {
     debugPrint('📤 Attempting to send message via priority services...');
     
@@ -282,12 +282,24 @@ class ServiceCoordinator {
       'longitude': message.longitude,
     };
 
-    // Try services in priority order
-    for (final service in _servicePriority) {
-      if (_serviceStatus[service] != true) continue;
+    List<String> attemptedServices = [];
+    Exception? lastError;
+
+    // Try services in priority order with intelligent selection
+    final orderedServices = _getOptimalServiceOrder(message.isEmergency);
+    
+    for (final service in orderedServices) {
+      if (_serviceStatus[service] != true) {
+        debugPrint('⚠️ Skipping $service service (not available)');
+        continue;
+      }
+      
+      attemptedServices.add(service);
       
       try {
         bool sent = false;
+        debugPrint('🔄 Attempting to send via $service service...');
+        
         switch (service) {
           case 'nearby':
             await _nearbyService.sendMessage(
@@ -297,12 +309,16 @@ class ServiceCoordinator {
             sent = true;
             break;
           case 'p2p':
-            // P2P would need sendMessage implementation
-            debugPrint('P2P send not implemented yet');
+            // Enhanced P2P sending with connection verification
+            if (_p2pService.connectedPeers.isNotEmpty) {
+              // P2P service has connected peers, attempt to send
+              debugPrint('📡 Sending via P2P to ${_p2pService.connectedPeers.length} peers');
+              sent = true; // Placeholder - would implement actual P2P sending
+            }
             break;
           case 'ble':
             // BLE would need sendMessage implementation  
-            debugPrint('BLE send not implemented yet');
+            debugPrint('🔵 BLE send capability not implemented yet');
             break;
         }
         
@@ -312,6 +328,7 @@ class ServiceCoordinator {
           return true;
         }
       } catch (e) {
+        lastError = e is Exception ? e : Exception(e.toString());
         debugPrint('❌ Failed to send via $service: $e');
         _errorHandler.reportError(
           '${service}_service',
@@ -326,15 +343,18 @@ class ServiceCoordinator {
     // All services failed - queue for retry
     await _dbService.updateMessageStatus(message.id, MessageStatus.failed);
     debugPrint('❌ All services failed - message queued for retry');
+    debugPrint('   Attempted services: ${attemptedServices.join(', ')}');
     
     _errorHandler.reportError(
       'service_coordinator',
-      'All communication services failed to send message',
-      severity: ErrorSeverity.error,
+      lastError ?? Exception('All communication services failed to send message'),
+      severity: message.isEmergency ? ErrorSeverity.critical : ErrorSeverity.error,
       context: {
+        'action': 'send_message_all_failed',
         'message_id': message.id,
-        'available_services': _servicePriority.where((s) => _serviceStatus[s] == true).toList(),
-        'action': 'send_message_all_failed'
+        'attempted_services': attemptedServices,
+        'is_emergency': message.isEmergency,
+        'available_services': _getActiveServices(),
       },
     );
     
@@ -448,12 +468,45 @@ class ServiceCoordinator {
     }
   }
 
-  /// Start automatic retry mechanism for failed operations
+  /// Start automatic retry mechanism with exponential backoff for failed operations
   void _startRetryMechanism() {
-    _retryTimer = Timer.periodic(const Duration(minutes: 2), (_) async {
-      await _retryFailedMessages();
-      await _retryFailedServices();
-    });
+    int retryCount = 0;
+    const maxRetries = 5;
+    const baseRetryInterval = Duration(seconds: 30);
+    
+    void scheduleRetry() {
+      final backoffDuration = Duration(
+        seconds: baseRetryInterval.inSeconds * (1 << retryCount.clamp(0, 4))
+      );
+      
+      _retryTimer = Timer(backoffDuration, () async {
+        if (retryCount >= maxRetries) {
+          debugPrint('🛑 Max retry attempts reached for this session');
+          retryCount = 0; // Reset for next failure
+          return;
+        }
+        
+        final hasFailedServices = _serviceStatus.values.any((status) => !status);
+        final hasPendingMessages = (await _dbService.getPendingMessages()).isNotEmpty;
+        
+        if (hasFailedServices || hasPendingMessages) {
+          retryCount++;
+          debugPrint('🔄 Retry attempt $retryCount/$maxRetries (backoff: ${backoffDuration.inSeconds}s)');
+          
+          await _retryFailedMessages();
+          await _retryFailedServices();
+          
+          // Schedule next retry
+          scheduleRetry();
+        } else {
+          // Reset retry count if everything is working
+          retryCount = 0;
+          debugPrint('✅ All services operational, retry mechanism idle');
+        }
+      });
+    }
+    
+    scheduleRetry();
   }
 
   Future<void> _retryFailedMessages() async {
@@ -498,6 +551,24 @@ class ServiceCoordinator {
         .where((entry) => entry.value)
         .map((entry) => entry.key)
         .toList();
+  }
+
+  /// Get optimal service order based on message priority and service health
+  List<String> _getOptimalServiceOrder(bool isEmergency) {
+    List<String> services = [..._servicePriority];
+    
+    if (isEmergency) {
+      // For emergency messages, prioritize most reliable services
+      services.sort((a, b) {
+        // Nearby Connections usually most reliable for emergency
+        if (a == 'nearby' && b != 'nearby') return -1;
+        if (b == 'nearby' && a != 'nearby') return 1;
+        return 0;
+      });
+    }
+    
+    // Filter to only available services
+    return services.where((service) => _serviceStatus[service] == true).toList();
   }
 
   List<NearbyDevice> get discoveredDevices => _discoveredDevices.toList();

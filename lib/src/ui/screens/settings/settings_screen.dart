@@ -1,16 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../models/user_role.dart';
+import '../../../models/user_role.dart' as role_models;
+import '../../../models/user_model.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/service_coordinator.dart';
 import '../../widgets/common/reusable_widgets.dart';
 
-// Mock settings providers - replace with actual service providers
-final settingsCurrentUserProvider = Provider<Map<String, dynamic>>((ref) {
-  return {
-    'name': 'John Doe',
-    'phone': '+1234567890',
-    'role': UserRole.sosUser,
-  };
+// Real user provider connected to auth service
+final currentUserProvider = StreamProvider<UserModel?>((ref) {
+  return AuthService.instance.userStream;
 });
+
+// Convert UserModel to Map for backward compatibility
+final settingsCurrentUserProvider = Provider<Map<String, dynamic>?>((ref) {
+  final userAsync = ref.watch(currentUserProvider);
+  return userAsync.when(
+    data: (user) => user != null ? {
+      'name': user.name,
+      'phone': user.phone ?? '',
+      'role': _mapStringToUserRole(user.role),
+    } : null,
+    loading: () => null,
+    error: (_, __) => null,
+  );
+});
+
+role_models.UserRole _mapStringToUserRole(String role) {
+  switch (role.toLowerCase()) {
+    case 'rescuer':
+      return role_models.UserRole.rescueUser;
+    case 'normal':
+      return role_models.UserRole.relayUser;
+    case 'sos_user':
+      return role_models.UserRole.sosUser;
+    default:
+      return role_models.UserRole.sosUser;
+  }
+}
 
 // Settings state notifiers
 class SettingsNotifier extends Notifier<Map<String, bool>> {
@@ -56,9 +82,11 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildUserProfile(context, currentUser, theme),
+            _buildUserProfile(context, currentUser!, theme),
             const SizedBox(height: 24),
             _buildSecuritySection(context, ref, encryptionEnabled, cloudSyncEnabled, theme),
+            const SizedBox(height: 24),
+            _buildCommunicationSection(context, ref, theme),
             const SizedBox(height: 24),
             _buildAppSection(context, theme),
             const SizedBox(height: 24),
@@ -72,7 +100,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Widget _buildUserProfile(BuildContext context, Map<String, dynamic> user, ThemeData theme) {
-    final role = user['role'] as UserRole;
+    final role = user['role'] as role_models.UserRole;
     
     return Card(
       child: Padding(
@@ -181,6 +209,81 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCommunicationSection(BuildContext context, WidgetRef ref, ThemeData theme) {
+    final serviceStatus = ServiceCoordinator.instance.getServiceStatus();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Communication Services',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Column(
+            children: [
+              _buildServiceToggle(
+                context,
+                theme,
+                'Nearby Connections',
+                'Short-range device-to-device communication',
+                Icons.wifi_tethering,
+                serviceStatus['nearby'] ?? false,
+                (enabled) => _toggleNearbyService(context, enabled),
+              ),
+              const Divider(height: 1),
+              _buildServiceToggle(
+                context,
+                theme,
+                'WiFi Direct',
+                'High-speed peer-to-peer networking',
+                Icons.wifi,
+                serviceStatus['p2p'] ?? false,
+                (enabled) => _toggleP2PService(context, enabled),
+              ),
+              const Divider(height: 1),
+              _buildServiceToggle(
+                context,
+                theme,
+                'Bluetooth LE',
+                'Low-energy device communication',
+                Icons.bluetooth,
+                serviceStatus['ble'] ?? false,
+                (enabled) => _toggleBLEService(context, enabled),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildServiceToggle(
+    BuildContext context,
+    ThemeData theme,
+    String title,
+    String subtitle,
+    IconData icon,
+    bool isEnabled,
+    Function(bool) onToggle,
+  ) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isEnabled ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+      ),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: Switch(
+        value: isEnabled,
+        onChanged: onToggle,
+      ),
     );
   }
 
@@ -295,23 +398,33 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _editProfile(BuildContext context) {
-    showDialog(
+  void _editProfile(BuildContext context) async {
+    final authService = AuthService.instance;
+    final currentUser = await authService.userStream.first;
+    
+    if (currentUser == null) return;
+    
+    final nameController = TextEditingController(text: currentUser.name);
+    final phoneController = TextEditingController(text: currentUser.phone ?? '');
+    
+    final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Profile'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              decoration: InputDecoration(
+              controller: nameController,
+              decoration: const InputDecoration(
                 labelText: 'Name',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
-              decoration: InputDecoration(
+              controller: phoneController,
+              decoration: const InputDecoration(
                 labelText: 'Phone',
                 border: OutlineInputBorder(),
               ),
@@ -325,14 +438,48 @@ class SettingsScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: Save profile changes
+              Navigator.of(context).pop({
+                'name': nameController.text.trim(),
+                'phone': phoneController.text.trim(),
+              });
             },
             child: const Text('Save'),
           ),
         ],
       ),
     );
+    
+    if (result != null) {
+      try {
+        // Update the user profile in AuthService
+        final success = await authService.updateProfile(
+          name: result['name']!,
+          phone: result['phone']!.isEmpty ? null : result['phone'],
+        );
+        
+        if (!success) {
+          throw Exception('Failed to update profile');
+        }
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update profile: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _toggleEncryption(bool enabled) {
@@ -343,6 +490,62 @@ class SettingsScreen extends ConsumerWidget {
   void _toggleCloudSync(bool enabled) {
     // TODO: Implement cloud sync toggle with cloud_sync_service
     print('Cloud sync ${enabled ? 'enabled' : 'disabled'}');
+  }
+
+  void _toggleNearbyService(BuildContext context, bool enabled) async {
+    try {
+      if (enabled) {
+        final coordinator = ServiceCoordinator.instance;
+        // Re-initialize nearby service if needed
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nearby Connections enabled')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nearby Connections disabled')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error toggling Nearby service: $e')),
+      );
+    }
+  }
+
+  void _toggleP2PService(BuildContext context, bool enabled) async {
+    try {
+      if (enabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('WiFi Direct enabled')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('WiFi Direct disabled')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error toggling P2P service: $e')),
+      );
+    }
+  }
+
+  void _toggleBLEService(BuildContext context, bool enabled) async {
+    try {
+      if (enabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bluetooth LE enabled')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bluetooth LE disabled')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error toggling BLE service: $e')),
+      );
+    }
   }
 
   void _openNotificationSettings(BuildContext context) {

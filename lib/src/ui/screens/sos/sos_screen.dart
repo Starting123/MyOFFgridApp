@@ -3,13 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Import the actual SOS provider
 import '../../../providers/enhanced_sos_provider.dart';
+import '../../../services/service_coordinator.dart';
+import '../../../models/chat_models.dart';
 
 // SOS State Provider
 final sosProvider = AsyncNotifierProvider<SOSNotifier, SOSAppState>(() {
   return SOSNotifier();
 });
 
-// Note: sosStatusProvider removed - using sosProvider instead
+// Real rescue devices provider using ServiceCoordinator
+final rescueDevicesProvider = StreamProvider<List<NearbyDevice>>((ref) {
+  return ServiceCoordinator.instance.deviceStream.map((devices) {
+    return devices.where((device) => 
+      device.isRescuerActive || 
+      device.role == DeviceRole.rescuer
+    ).toList();
+  });
+});
 
 class SOSScreen extends ConsumerStatefulWidget {
   const SOSScreen({Key? key}) : super(key: key);
@@ -49,9 +59,10 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final sosStateAsync = ref.watch(sosProvider);
+    final rescueDevicesAsync = ref.watch(rescueDevicesProvider);
 
     return sosStateAsync.when(
-      data: (sosState) => _buildSOSScreen(context, theme, sosState),
+      data: (sosState) => _buildSOSScreen(context, theme, sosState, rescueDevicesAsync),
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
@@ -74,7 +85,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     );
   }
 
-  Widget _buildSOSScreen(BuildContext context, ThemeData theme, SOSAppState sosState) {
+  Widget _buildSOSScreen(BuildContext context, ThemeData theme, SOSAppState sosState, AsyncValue<List<NearbyDevice>> rescueDevicesAsync) {
     final isSOSActive = sosState.isSOSActive;
     
     // Start/stop pulse animation based on SOS status
@@ -239,22 +250,64 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
             ),
             if (isActive) ...[
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.people,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '3 rescue teams nearby',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+              ref.watch(rescueDevicesProvider).when(
+                data: (rescueDevices) => Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.people,
+                      size: 16,
+                      color: rescueDevices.isNotEmpty 
+                          ? Colors.green 
+                          : theme.colorScheme.onSurfaceVariant,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Text(
+                      rescueDevices.isEmpty
+                          ? 'Searching for rescue teams...'
+                          : '${rescueDevices.length} rescue team${rescueDevices.length == 1 ? '' : 's'} nearby',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: rescueDevices.isNotEmpty 
+                            ? Colors.green 
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                loading: () => Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Searching for rescue teams...',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                error: (_, __) => Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 16,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Error finding rescue teams',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],

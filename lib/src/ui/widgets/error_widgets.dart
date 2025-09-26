@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/error_providers.dart';
-import '../../services/error_handler_service.dart';
+import '../../services/error_handler_service.dart' as error_service;
 
 /// Production-ready error display widgets
 /// Provides user-friendly error notifications and recovery options
@@ -114,8 +114,8 @@ class ErrorNotificationOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildNetworkIndicator(BuildContext context, NetworkState state) {
-    if (state == NetworkState.online) {
+  Widget _buildNetworkIndicator(BuildContext context, error_service.NetworkState state) {
+    if (state == error_service.NetworkState.online) {
       return const SizedBox.shrink();
     }
 
@@ -124,22 +124,22 @@ class ErrorNotificationOverlay extends ConsumerWidget {
     IconData icon;
 
     switch (state) {
-      case NetworkState.offline:
+      case error_service.NetworkState.offline:
         color = Colors.red;
         message = 'No connection';
         icon = Icons.wifi_off;
         break;
-      case NetworkState.limited:
+      case error_service.NetworkState.limited:
         color = Colors.orange;
         message = 'Limited connection';
         icon = Icons.wifi_1_bar;
         break;
-      case NetworkState.unknown:
+      case error_service.NetworkState.unknown:
         color = Colors.grey;
         message = 'Connection status unknown';
         icon = Icons.help_outline;
         break;
-      case NetworkState.online:
+      case error_service.NetworkState.online:
         return const SizedBox.shrink();
     }
 
@@ -166,28 +166,28 @@ class ErrorNotificationOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildErrorNotification(BuildContext context, WidgetRef ref, AppError error) {
+  Widget _buildErrorNotification(BuildContext context, WidgetRef ref, error_service.AppError error) {
     Color backgroundColor;
     Color textColor;
     IconData icon;
 
     switch (error.severity) {
-      case ErrorSeverity.info:
+      case error_service.ErrorSeverity.info:
         backgroundColor = Colors.blue[100]!;
         textColor = Colors.blue[800]!;
         icon = Icons.info_outline;
         break;
-      case ErrorSeverity.warning:
+      case error_service.ErrorSeverity.warning:
         backgroundColor = Colors.orange[100]!;
         textColor = Colors.orange[800]!;
         icon = Icons.warning_outlined;
         break;
-      case ErrorSeverity.error:
+      case error_service.ErrorSeverity.error:
         backgroundColor = Colors.red[100]!;
         textColor = Colors.red[800]!;
         icon = Icons.error_outline;
         break;
-      case ErrorSeverity.critical:
+      case error_service.ErrorSeverity.critical:
         backgroundColor = Colors.red[200]!;
         textColor = Colors.red[900]!;
         icon = Icons.dangerous_outlined;
@@ -251,7 +251,7 @@ class ErrorNotificationOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecoveryButton(BuildContext context, WidgetRef ref, RecoveryAction action) {
+  Widget _buildRecoveryButton(BuildContext context, WidgetRef ref, error_service.RecoveryAction action) {
     return ElevatedButton(
       onPressed: () async {
         final recoveryHandler = ref.read(recoveryActionProvider);
@@ -276,7 +276,7 @@ class ErrorNotificationOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildErrorDialog(BuildContext context, WidgetRef ref, AppError error) {
+  Widget _buildErrorDialog(BuildContext context, WidgetRef ref, error_service.AppError error) {
     return Material(
       color: Colors.black.withOpacity(0.5),
       child: Center(

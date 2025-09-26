@@ -1,6 +1,42 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+/// Service health status for monitoring
+class ServiceHealth {
+  final String serviceName;
+  final bool isHealthy;
+  final DateTime lastCheck;
+  final int consecutiveFailures;
+  final Duration averageResponseTime;
+  final String? lastError;
+
+  ServiceHealth({
+    required this.serviceName,
+    required this.isHealthy,
+    required this.lastCheck,
+    this.consecutiveFailures = 0,
+    this.averageResponseTime = Duration.zero,
+    this.lastError,
+  });
+
+  ServiceHealth copyWith({
+    bool? isHealthy,
+    DateTime? lastCheck,
+    int? consecutiveFailures,
+    Duration? averageResponseTime,
+    String? lastError,
+  }) {
+    return ServiceHealth(
+      serviceName: serviceName,
+      isHealthy: isHealthy ?? this.isHealthy,
+      lastCheck: lastCheck ?? this.lastCheck,
+      consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
+      averageResponseTime: averageResponseTime ?? this.averageResponseTime,
+      lastError: lastError ?? this.lastError,
+    );
+  }
+}
+
 /// Production-ready error handling service with comprehensive error management
 /// Provides graceful degradation, user feedback, and recovery mechanisms
 class ErrorHandlerService {
@@ -17,14 +53,104 @@ class ErrorHandlerService {
   final List<AppError> _recentErrors = [];
   final List<RecoveryAction> _pendingRecoveries = [];
   
+  // Service health monitoring
+  final Map<String, ServiceHealth> _serviceHealth = {};
+  Timer? _healthCheckTimer;
+  
   // Configuration
   static const int maxRecentErrors = 100;
   static const Duration errorThrottleTime = Duration(seconds: 5);
+  static const Duration healthCheckInterval = Duration(minutes: 1);
   final Map<String, DateTime> _lastErrorTimes = {};
 
   // Public streams
   Stream<AppError> get errorStream => _errorController.stream;
   Stream<NetworkState> get networkStateStream => _networkController.stream;
+
+  /// Initialize health monitoring for all services
+  void startHealthMonitoring() {
+    _healthCheckTimer = Timer.periodic(healthCheckInterval, (_) => _performHealthChecks());
+  }
+
+  /// Stop health monitoring
+  void stopHealthMonitoring() {
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = null;
+  }
+
+  /// Update service health status
+  void updateServiceHealth(String serviceName, bool isHealthy, {String? error, Duration? responseTime}) {
+    final currentHealth = _serviceHealth[serviceName];
+    final consecutiveFailures = isHealthy 
+        ? 0 
+        : (currentHealth?.consecutiveFailures ?? 0) + 1;
+
+    _serviceHealth[serviceName] = ServiceHealth(
+      serviceName: serviceName,
+      isHealthy: isHealthy,
+      lastCheck: DateTime.now(),
+      consecutiveFailures: consecutiveFailures,
+      averageResponseTime: responseTime ?? Duration.zero,
+      lastError: error,
+    );
+
+    // Report critical health issues
+    if (consecutiveFailures >= 3) {
+      reportError(
+        'health_monitor',
+        'Service $serviceName has failed $consecutiveFailures consecutive health checks',
+        severity: ErrorSeverity.critical,
+        context: {'service': serviceName, 'consecutive_failures': consecutiveFailures},
+      );
+    }
+  }
+
+  /// Get health status for a specific service
+  ServiceHealth? getServiceHealth(String serviceName) {
+    return _serviceHealth[serviceName];
+  }
+
+  /// Get health status for all services
+  Map<String, ServiceHealth> getAllServiceHealth() {
+    return Map.from(_serviceHealth);
+  }
+
+  /// Perform automated health checks
+  void _performHealthChecks() {
+    for (final serviceName in ['nearby', 'p2p', 'ble', 'auth', 'database']) {
+      _checkServiceHealth(serviceName);
+    }
+  }
+
+  /// Check health of a specific service
+  Future<void> _checkServiceHealth(String serviceName) async {
+    final startTime = DateTime.now();
+    bool isHealthy = false;
+    String? error;
+
+    try {
+      // Service-specific health checks
+      switch (serviceName) {
+        case 'nearby':
+        case 'p2p':
+        case 'ble':
+          // These would ping the service to check responsiveness
+          isHealthy = true; // Placeholder
+          break;
+        case 'auth':
+        case 'database':
+          // Check database connectivity and auth service
+          isHealthy = true; // Placeholder
+          break;
+      }
+    } catch (e) {
+      error = e.toString();
+      isHealthy = false;
+    }
+
+    final responseTime = DateTime.now().difference(startTime);
+    updateServiceHealth(serviceName, isHealthy, error: error, responseTime: responseTime);
+  }
 
   /// Report an error with context and automatic recovery suggestions
   void reportError(

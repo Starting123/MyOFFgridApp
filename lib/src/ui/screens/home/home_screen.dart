@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
 import '../../../models/chat_models.dart';
 import '../../../services/service_coordinator.dart';
+import '../../../services/auth_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
 import '../../widgets/app_widgets.dart';
 import '../../theme/app_theme.dart';
@@ -16,21 +17,35 @@ final discoveredDevicesProvider = StreamProvider<List<NearbyDevice>>((ref) {
   return ServiceCoordinator.instance.deviceStream;
 });
 
-// Mock current user for demo - replace with auth service
-final currentUserProvider = Provider<Map<String, dynamic>>((ref) {
-  return {
-    'name': 'John Doe',
-    'phone': '+1234567890',
-    'role': UserRole.sosUser, // Change this to test different roles
-  };
+// Real user provider using AuthService
+final currentUserProvider = StreamProvider<Map<String, dynamic>?>((ref) async* {
+  final authService = AuthService.instance;
+  yield* authService.userStream.map((user) => user != null ? {
+    'name': user.name,
+    'phone': user.phone ?? 'No phone',
+    'role': _mapStringToUserRole(user.role),
+  } : null);
 });
+
+UserRole _mapStringToUserRole(String role) {
+  switch (role.toLowerCase()) {
+    case 'rescuer':
+      return UserRole.rescueUser;
+    case 'normal':
+      return UserRole.relayUser;
+    case 'sos_user':
+      return UserRole.sosUser;
+    default:
+      return UserRole.sosUser;
+  }
+}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserProvider);
+    final currentUserAsync = ref.watch(currentUserProvider);
     final serviceStatus = ref.watch(serviceStatusProvider);
     final devicesAsync = ref.watch(discoveredDevicesProvider);
     final theme = Theme.of(context);
@@ -42,7 +57,6 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
             onPressed: () {
-              // TODO: Implement refresh/scan for devices
               _refreshDevices(ref);
             },
             icon: const Icon(Icons.refresh),
@@ -55,15 +69,48 @@ class HomeScreen extends ConsumerWidget {
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(DesignTokens.spaceMD),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildUserProfile(context, currentUser, theme),
-              const SizedBox(height: DesignTokens.spaceLG),
-              _buildStatusSection(context, currentUser, serviceStatus, theme),
-              const SizedBox(height: DesignTokens.spaceLG),
-              _buildNearbySection(context, devicesAsync, theme),
-            ],
+          child: currentUserAsync.when(
+            data: (currentUser) {
+              if (currentUser == null) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.person_off, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('Please log in to continue'),
+                    ],
+                  ),
+                );
+              }
+              
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildUserProfile(context, currentUser, theme),
+                  const SizedBox(height: DesignTokens.spaceLG),
+                  _buildStatusSection(context, currentUser, serviceStatus, theme),
+                  const SizedBox(height: DesignTokens.spaceLG),
+                  _buildNearbySection(context, devicesAsync, theme),
+                ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('Error loading user data: $error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => ref.refresh(currentUserProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
