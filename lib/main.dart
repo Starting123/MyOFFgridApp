@@ -3,12 +3,12 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'src/ui/screens/main_navigation_clean.dart';
+import 'src/ui/screens/enhanced_main_navigation.dart';
 import 'src/ui/screens/first_time_setup_screen.dart';
 import 'src/ui/screens/login_screen.dart';
 import 'src/ui/theme/app_theme.dart';
-import 'src/services/nearby_service.dart';
 import 'src/services/auth_service.dart';
+import 'src/services/offgrid_service_manager.dart';
 import 'src/utils/background_service_manager.dart';
 
 void main() async {
@@ -115,9 +115,9 @@ Future<void> _initializeServices() async {
     await AuthService.instance.initialize();
     debugPrint('✅ Auth Service initialized');
     
-    // Initialize Nearby Service
-    final nearbyInitialized = await NearbyService.instance.initialize();
-    debugPrint(nearbyInitialized ? '✅ Nearby Service initialized' : '❌ Nearby Service failed');
+    // Initialize integrated service manager
+    final servicesInitialized = await OffGridServiceManager.instance.initializeAllServices();
+    debugPrint(servicesInitialized ? '✅ Off-Grid Services initialized' : '❌ Off-Grid Services failed');
     
     // Show permission summary
     await _showPermissionSummary();
@@ -265,7 +265,7 @@ class _AppStartScreenState extends State<AppStartScreen> {
     } else if (!_isLoggedIn!) {
       return const LoginScreen();
     } else {
-      return const ModernMainNavigation();
+      return const EnhancedMainNavigation();
     }
   }
 }
