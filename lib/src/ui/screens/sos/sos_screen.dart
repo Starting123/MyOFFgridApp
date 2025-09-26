@@ -78,12 +78,14 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     final isSOSActive = sosState.isSOSActive;
     
     // Start/stop pulse animation based on SOS status
-    if (isSOSActive) {
-      _pulseController.repeat(reverse: true);
-    } else {
-      _pulseController.stop();
-      _pulseController.reset();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (isSOSActive && !_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      } else if (!isSOSActive && _pulseController.isAnimating) {
+        _pulseController.stop();
+        _pulseController.reset();
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -100,8 +102,8 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.red.withOpacity(0.1),
-                    Colors.red.withOpacity(0.05),
+                    Colors.red.withValues(alpha: 0.1),
+                    Colors.red.withValues(alpha: 0.05),
                   ],
                 )
               : null,
@@ -109,18 +111,21 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 40),
-                _buildSOSButton(context, theme, isSOSActive),
-                const SizedBox(height: 40),
-                _buildStatusText(context, theme, isSOSActive),
-                const SizedBox(height: 40),
-                _buildInstructions(context, theme),
-                const Spacer(),
-                _buildEmergencyContacts(context, theme),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
+                  _buildSOSButton(context, theme, isSOSActive),
+                  const SizedBox(height: 20),
+                  _buildStatusText(context, theme, isSOSActive),
+                  const SizedBox(height: 20),
+                  _buildInstructions(context, theme),
+                  const SizedBox(height: 20),
+                  _buildEmergencyContacts(context, theme),
+                  const SizedBox(height: 40), // Bottom padding for scroll
+                ],
+              ),
             ),
           ),
         ),
@@ -129,19 +134,20 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
   }
 
   Widget _buildSOSButton(BuildContext context, ThemeData theme, bool isActive) {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: isActive ? _pulseAnimation.value : 1.0,
-          child: GestureDetector(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: isActive ? _pulseAnimation.value : 1.0,
+            child: GestureDetector(
             onTap: _toggleSOS,
             child: Container(
               width: 200,
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isActive ? Colors.red : Colors.red.withOpacity(0.1),
+                color: isActive ? Colors.red : Colors.red.withValues(alpha: 0.1),
                 border: Border.all(
                   color: Colors.red,
                   width: 4,
@@ -149,14 +155,14 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                 boxShadow: isActive
                     ? [
                         BoxShadow(
-                          color: Colors.red.withOpacity(0.5),
+                          color: Colors.red.withValues(alpha: 0.5),
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),
                       ]
                     : [
                         BoxShadow(
-                          color: Colors.red.withOpacity(0.2),
+                          color: Colors.red.withValues(alpha: 0.2),
                           blurRadius: 10,
                           spreadRadius: 2,
                         ),
@@ -193,12 +199,13 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
           ),
         );
       },
+      ),
     );
   }
 
   Widget _buildStatusText(BuildContext context, ThemeData theme, bool isActive) {
     return Card(
-      color: isActive ? Colors.red.withOpacity(0.1) : null,
+      color: isActive ? Colors.red.withValues(alpha: 0.1) : null,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
