@@ -352,14 +352,40 @@ class ServiceCoordinator {
           case 'p2p':
             // Enhanced P2P sending with connection verification
             if (_p2pService.connectedPeers.isNotEmpty) {
-              // P2P service has connected peers, attempt to send
-              debugPrint('📡 Sending via P2P to ${_p2pService.connectedPeers.length} peers');
-              sent = true; // Placeholder - would implement actual P2P sending
+              Logger.info('📡 Sending via P2P to ${_p2pService.connectedPeers.length} peers');
+              try {
+                final messageJson = jsonEncode(messageData);
+                final results = await Future.wait(
+                  _p2pService.connectedPeers.map((peerId) =>
+                    _p2pService.sendMessage(messageJson, targetPeerId: peerId)
+                  )
+                );
+                sent = results.any((result) => result == true);
+                if (sent) {
+                  Logger.success('✅ Message sent via P2P to ${results.where((r) => r).length} peers');
+                } else {
+                  Logger.warning('⚠️ P2P send failed to all peers');
+                }
+              } catch (e) {
+                Logger.error('❌ P2P send error: $e');
+                sent = false;
+              }
             }
             break;
           case 'ble':
-            // BLE would need sendMessage implementation  
-            debugPrint('🔵 BLE send capability not implemented yet');
+            // BLE sending implementation - will be enhanced when BLE service adds send capability
+            if (_serviceStatus['ble'] == true) {
+              Logger.info('🔵 Attempting BLE message transmission');
+              try {
+                // For now, mark as sent if BLE is available and connected
+                // TODO: Implement actual BLE message transmission when BLE service is enhanced
+                sent = false; // Set to false until BLE send is implemented
+                Logger.warning('⚠️ BLE send capability pending implementation');
+              } catch (e) {
+                Logger.error('❌ BLE send error: $e');
+                sent = false;
+              }
+            }
             break;
         }
         
@@ -474,14 +500,35 @@ class ServiceCoordinator {
           connected = await _nearbyService.connectToEndpoint(deviceId);
           break;
         case 'p2p':
-          // P2P connection logic would be here
-          debugPrint('P2P connection attempted for $deviceId');
-          connected = true; // Placeholder
+          // P2P connection logic - P2P uses discovery/advertising, not direct connection to deviceId
+          Logger.info('📡 P2P service ready for connections');
+          try {
+            // P2P connections happen through discovery/advertising process
+            // Check if peer is already connected
+            connected = _p2pService.connectedPeers.contains(deviceId);
+            if (connected) {
+              Logger.success('✅ P2P already connected to $deviceId');
+            } else {
+              Logger.info('⏳ P2P awaiting connection from $deviceId');
+              connected = false; // Connection established through discovery
+            }
+          } catch (e) {
+            Logger.error('❌ P2P connection check error: $e');
+            connected = false;
+          }
           break;
         case 'ble':
-          // BLE connection logic would be here
-          debugPrint('BLE connection attempted for $deviceId');
-          connected = true; // Placeholder
+          // BLE connection logic - requires BluetoothDevice object, not string ID
+          Logger.info('🔵 BLE connection to device ID not directly supported');
+          try {
+            // BLE service requires BluetoothDevice object for connection
+            // Device ID alone is insufficient for BLE connection
+            Logger.warning('⚠️ BLE connection requires device discovery first');
+            connected = false; // Needs device discovery to get BluetoothDevice
+          } catch (e) {
+            Logger.error('❌ BLE connection error: $e');
+            connected = false;
+          }
           break;
         default:
           throw Exception('Unsupported connection type: ${device.connectionType}');
@@ -679,15 +726,28 @@ class ServiceCoordinator {
           break;
         case 'p2p':
           if (_serviceStatus['p2p'] == true) {
-            // P2P service would need a direct send method
-            Logger.info('Sending via P2P to $deviceId');
-            return true; // Placeholder
+            // P2P service direct send method
+            Logger.info('Sending data via P2P to $deviceId');
+            try {
+              await _p2pService.sendMessage(data, targetPeerId: deviceId);
+              return true;
+            } catch (e) {
+              Logger.error('P2P send failed: $e');
+              return false;
+            }
           }
           break;
         case 'ble':
           if (_serviceStatus['ble'] == true) {
-            Logger.info('Sending via BLE to $deviceId');
-            return true; // Placeholder
+            Logger.info('Sending data via BLE to $deviceId');
+            try {
+              // BLE service direct send (when available)
+              Logger.warning('BLE direct send not yet implemented in BLE service');
+              return false; // Until BLE service implements direct send
+            } catch (e) {
+              Logger.error('BLE send failed: $e');
+              return false;
+            }
           }
           break;
       }
