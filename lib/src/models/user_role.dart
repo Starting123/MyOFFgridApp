@@ -43,11 +43,11 @@ extension UserRoleExtension on UserRole {
   String get description {
     switch (this) {
       case UserRole.sosUser:
-        return 'Send emergency signals when in distress';
+        return 'Can send emergency SOS signals when in distress (RED mode)';
       case UserRole.rescueUser:
-        return 'Receive and respond to emergency signals';
+        return 'Can respond to SOS calls and help rescue people (BLUE mode)';
       case UserRole.relayUser:
-        return 'Relay signals to extend communication range';
+        return 'Helps relay messages to extend network range (GREEN mode)';
     }
   }
 }

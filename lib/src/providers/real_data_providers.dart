@@ -222,10 +222,15 @@ class RealMessageActions {
     bool isEmergency = false,
   }) async {
     try {
+      // Get current user from AuthService
+      final currentUser = AuthService.instance.currentUser;
+      final senderId = currentUser?.id ?? 'device_${DateTime.now().millisecondsSinceEpoch}';
+      final senderName = currentUser?.name ?? 'Anonymous User';
+      
       final message = ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        senderId: 'current_user', // TODO: Get from AuthService
-        senderName: 'Me', // TODO: Get from AuthService
+        senderId: senderId,
+        senderName: senderName,
         receiverId: receiverId,
         content: content,
         type: MessageType.text,

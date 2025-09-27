@@ -11,6 +11,7 @@ import 'screens/settings/settings_screen.dart';
 import 'widgets/common/bottom_navigation.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_widgets.dart';
+import '../services/auth_service.dart';
 
 // Main App with Material 3 Theme
 class OffGridApp extends ConsumerWidget {
@@ -99,9 +100,9 @@ class AuthCheckScreen extends ConsumerWidget {
   }
 
   Future<bool> _checkAuthStatus() async {
-    // TODO: Implement auth check with auth_service
-    await Future.delayed(const Duration(seconds: 1));
-    return false; // Always show register for now
+    // Initialize and check auth service
+    await AuthService.instance.initialize();
+    return AuthService.instance.isLoggedIn;
   }
 }
 

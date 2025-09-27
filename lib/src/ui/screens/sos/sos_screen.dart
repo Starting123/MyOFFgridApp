@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Import the actual SOS provider
 import '../../../providers/enhanced_sos_provider.dart';
 import '../../../services/service_coordinator.dart';
+import '../../../services/auth_service.dart';
 import '../../../models/chat_models.dart';
+import '../../../models/user_role.dart';
 import '../../../utils/logger.dart';
 
 // SOS State Provider
@@ -21,6 +23,35 @@ final rescueDevicesProvider = StreamProvider<List<NearbyDevice>>((ref) {
     ).toList();
   });
 });
+
+// Current user role provider
+final currentUserRoleProvider = Provider<UserRole>((ref) {
+  final currentUser = AuthService.instance.currentUser;
+  final userRole = currentUser?.role;
+  if (userRole != null) {
+    return _mapStringToUserRole(userRole);
+  }
+  return UserRole.sosUser; // Default fallback
+});
+
+// Helper function to map role string to UserRole enum
+UserRole _mapStringToUserRole(String role) {
+  switch (role.toLowerCase()) {
+    case 'rescueuser':
+    case 'rescuer':
+      return UserRole.rescueUser;
+    case 'relayuser':
+    case 'relay':
+    case 'normal':
+      return UserRole.relayUser;
+    case 'sosuser':
+    case 'sos_user':
+    case 'sos':
+      return UserRole.sosUser;
+    default:
+      return UserRole.sosUser; // Default fallback
+  }
+}
 
 class SOSScreen extends ConsumerStatefulWidget {
   const SOSScreen({Key? key}) : super(key: key);
@@ -61,9 +92,10 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     final theme = Theme.of(context);
     final sosStateAsync = ref.watch(sosProvider);
     final rescueDevicesAsync = ref.watch(rescueDevicesProvider);
+    final userRole = ref.watch(currentUserRoleProvider);
 
     return sosStateAsync.when(
-      data: (sosState) => _buildSOSScreen(context, theme, sosState, rescueDevicesAsync),
+      data: (sosState) => _buildSOSScreen(context, theme, sosState, rescueDevicesAsync, userRole),
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
@@ -86,8 +118,9 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     );
   }
 
-  Widget _buildSOSScreen(BuildContext context, ThemeData theme, SOSAppState sosState, AsyncValue<List<NearbyDevice>> rescueDevicesAsync) {
+  Widget _buildSOSScreen(BuildContext context, ThemeData theme, SOSAppState sosState, AsyncValue<List<NearbyDevice>> rescueDevicesAsync, UserRole userRole) {
     final isSOSActive = sosState.isSOSActive;
+    final isRescueUser = userRole == UserRole.rescueUser;
     
     // Start/stop pulse animation based on SOS status
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -101,9 +134,9 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emergency SOS'),
+        title: Text(isRescueUser ? 'Rescue Signal' : 'Emergency SOS'),
         centerTitle: true,
-        backgroundColor: isSOSActive ? Colors.red : null,
+        backgroundColor: isSOSActive ? (isRescueUser ? Colors.blue : Colors.red) : null,
         foregroundColor: isSOSActive ? Colors.white : null,
       ),
       body: Container(
@@ -113,7 +146,10 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
               ? LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
+                  colors: isRescueUser ? [
+                    Colors.blue.withValues(alpha: 0.1),
+                    Colors.blue.withValues(alpha: 0.05),
+                  ] : [
                     Colors.red.withValues(alpha: 0.1),
                     Colors.red.withValues(alpha: 0.05),
                   ],
@@ -128,9 +164,9 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 20),
-                  _buildSOSButton(context, theme, isSOSActive),
+                  _buildSOSButton(context, theme, isSOSActive, isRescueUser),
                   const SizedBox(height: 20),
-                  _buildStatusText(context, theme, isSOSActive),
+                  _buildStatusText(context, theme, isSOSActive, isRescueUser),
                   const SizedBox(height: 20),
                   _buildInstructions(context, theme),
                   const SizedBox(height: 20),
@@ -145,7 +181,7 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     );
   }
 
-  Widget _buildSOSButton(BuildContext context, ThemeData theme, bool isActive) {
+  Widget _buildSOSButton(BuildContext context, ThemeData theme, bool isActive, bool isRescueUser) {
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _pulseAnimation,
@@ -159,22 +195,24 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isActive ? Colors.red : Colors.red.withValues(alpha: 0.1),
+                color: isActive 
+                    ? (isRescueUser ? Colors.blue : Colors.red) 
+                    : (isRescueUser ? Colors.blue.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1)),
                 border: Border.all(
-                  color: Colors.red,
+                  color: isRescueUser ? Colors.blue : Colors.red,
                   width: 4,
                 ),
                 boxShadow: isActive
                     ? [
                         BoxShadow(
-                          color: Colors.red.withValues(alpha: 0.5),
+                          color: (isRescueUser ? Colors.blue : Colors.red).withValues(alpha: 0.5),
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),
                       ]
                     : [
                         BoxShadow(
-                          color: Colors.red.withValues(alpha: 0.2),
+                          color: (isRescueUser ? Colors.blue : Colors.red).withValues(alpha: 0.2),
                           blurRadius: 10,
                           spreadRadius: 2,
                         ),
@@ -184,24 +222,26 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.warning,
+                    isRescueUser ? Icons.health_and_safety : Icons.warning,
                     size: 60,
-                    color: isActive ? Colors.white : Colors.red,
+                    color: isActive ? Colors.white : (isRescueUser ? Colors.blue : Colors.red),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'SOS',
+                    isRescueUser ? 'RESCUE' : 'SOS',
                     style: theme.textTheme.headlineMedium?.copyWith(
-                      color: isActive ? Colors.white : Colors.red,
+                      color: isActive ? Colors.white : (isRescueUser ? Colors.blue : Colors.red),
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isActive ? 'TAP TO STOP' : 'TAP FOR HELP',
+                    isActive 
+                        ? 'TAP TO STOP' 
+                        : (isRescueUser ? 'TAP TO SIGNAL' : 'TAP FOR HELP'),
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: isActive ? Colors.white : Colors.red,
+                      color: isActive ? Colors.white : (isRescueUser ? Colors.blue : Colors.red),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -215,9 +255,9 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
     );
   }
 
-  Widget _buildStatusText(BuildContext context, ThemeData theme, bool isActive) {
+  Widget _buildStatusText(BuildContext context, ThemeData theme, bool isActive, bool isRescueUser) {
     return Card(
-      color: isActive ? Colors.red.withValues(alpha: 0.1) : null,
+      color: isActive ? (isRescueUser ? Colors.blue.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1)) : null,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -227,13 +267,15 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
               children: [
                 Icon(
                   isActive ? Icons.broadcast_on_personal : Icons.broadcast_on_home,
-                  color: isActive ? Colors.red : theme.colorScheme.onSurfaceVariant,
+                  color: isActive ? (isRescueUser ? Colors.blue : Colors.red) : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  isActive ? 'SOS ACTIVE' : 'SOS STANDBY',
+                  isActive 
+                      ? (isRescueUser ? 'RESCUE ACTIVE' : 'SOS ACTIVE') 
+                      : (isRescueUser ? 'RESCUE STANDBY' : 'SOS STANDBY'),
                   style: theme.textTheme.titleLarge?.copyWith(
-                    color: isActive ? Colors.red : theme.colorScheme.onSurfaceVariant,
+                    color: isActive ? (isRescueUser ? Colors.blue : Colors.red) : theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -242,8 +284,12 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
             const SizedBox(height: 12),
             Text(
               isActive
-                  ? 'Your emergency signal is being broadcast to nearby rescue teams. Help is on the way!'
-                  : 'Tap the SOS button above to send an emergency signal to nearby rescue teams.',
+                  ? (isRescueUser 
+                      ? 'Your rescue signal is active! People in need can find you and request help.'
+                      : 'Your emergency signal is being broadcast to nearby rescue teams. Help is on the way!')
+                  : (isRescueUser 
+                      ? 'Tap the RESCUE button to broadcast your availability to help people in emergency situations.'
+                      : 'Tap the SOS button above to send an emergency signal to nearby rescue teams.'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

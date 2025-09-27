@@ -33,11 +33,13 @@ class AuthActions {
     required String name,
     required String email,
     String? phone,
+    String? role,
   }) async {
     return await AuthService.instance.signUp(
       name: name,
       email: email,
       phone: phone,
+      role: role,
     );
   }
 

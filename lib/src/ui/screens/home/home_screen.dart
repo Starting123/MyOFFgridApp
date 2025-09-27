@@ -30,14 +30,19 @@ final currentUserProvider = StreamProvider<Map<String, dynamic>?>((ref) async* {
 
 UserRole _mapStringToUserRole(String role) {
   switch (role.toLowerCase()) {
+    case 'rescueuser':
     case 'rescuer':
       return UserRole.rescueUser;
+    case 'relayuser':
+    case 'relay':
     case 'normal':
       return UserRole.relayUser;
+    case 'sosuser':
     case 'sos_user':
+    case 'sos':
       return UserRole.sosUser;
     default:
-      return UserRole.sosUser;
+      return UserRole.sosUser; // Default to SOS for consistency
   }
 }
 

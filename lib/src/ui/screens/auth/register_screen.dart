@@ -334,7 +334,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     try {
-      // TODO: Implement registration with auth_service
+      // Register user with AuthService
       await _registerUser(
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
@@ -372,24 +372,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       final authService = AuthService.instance;
       
-      // Register user via AuthService
+      // Register user via AuthService with role
       final registeredUser = await authService.signUp(
         name: name,
         email: phone, // Using phone as email for simplicity
         phone: phone,
+        role: role.name, // Store the role as string
       );
       
       if (registeredUser == null) {
         throw Exception('Registration failed');
       }
       
-      // TODO: Store password securely and role information
-      // For now, we'll just store the basic user info
-      Logger.success('User registered successfully: ${registeredUser.name} with role: ${role.name}', 'auth');
+      Logger.success('User registered successfully: ${registeredUser.name} with role: ${role.displayName}', 'auth');
       
       if (mounted) {
+        // Show success message and navigate to main app
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Welcome ${registeredUser.name}! Registration successful.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
         // Navigate to main app after successful registration
-        Navigator.of(context).pushReplacementNamed('/main');
+        Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
       }
     } catch (e) {
       // The error will be handled by the calling function

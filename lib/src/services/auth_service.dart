@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../utils/logger.dart';
+import 'service_coordinator.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -64,6 +65,7 @@ class AuthService {
     required String name,
     required String email,
     String? phone,
+    String? role,
   }) async {
     try {
       final user = UserModel(
@@ -71,6 +73,7 @@ class AuthService {
         name: name,
         email: email,
         phone: phone,
+        role: role ?? 'normal', // Store the role
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         isOnline: true,
@@ -163,6 +166,35 @@ class AuthService {
       return true;
     } catch (e) {
       Logger.error('Error updating profile: $e');
+      return false;
+    }
+  }
+
+  /// Update user role specifically (offline-first)
+  Future<bool> updateRole(String newRole) async {
+    if (_currentUser == null) return false;
+
+    try {
+      // Use the existing updateProfile method to update role
+      final success = await updateProfile(role: newRole);
+      
+      if (success) {
+        Logger.info('User role updated to: $newRole', 'auth');
+        
+        // Notify ServiceCoordinator about role change
+        try {
+          await ServiceCoordinator.instance.updateDeviceRole(newRole);
+        } catch (e) {
+          Logger.warning('Failed to update ServiceCoordinator role: $e', 'auth');
+          // Don't fail the role update if ServiceCoordinator fails
+        }
+        
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      Logger.error('Error updating user role: $e', 'auth');
       return false;
     }
   }
