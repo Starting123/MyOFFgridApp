@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
 import '../../../models/chat_models.dart' as models;
 import '../../../providers/chat_providers.dart';
+import '../../../providers/user_provider.dart';
 import '../../../services/chat_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
 import '../../../utils/logger.dart';
@@ -203,7 +204,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Widget _buildMessageBubble(models.ChatMessage message) {
     final theme = Theme.of(context);
-    final isMe = message.senderId == 'me'; // TODO: Replace with actual current user ID
+    final currentUser = ref.watch(currentUserProvider);
+    final isMe = message.senderId == (currentUser?.id ?? 'unknown');
     
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -498,10 +500,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       final userId = widget.user['id'] as String;
       
       // Create ChatMessage object
+      final currentUser = ref.read(currentUserProvider);
       final chatMessage = models.ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        senderId: 'me', // TODO: Replace with actual current user ID
-        senderName: 'Me', // TODO: Replace with actual current user name
+        senderId: currentUser?.id ?? 'unknown',
+        senderName: currentUser?.name ?? 'Unknown User',
         receiverId: userId,
         content: message,
         type: models.MessageType.text,

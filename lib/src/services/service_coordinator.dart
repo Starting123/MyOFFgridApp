@@ -272,7 +272,7 @@ class ServiceCoordinator {
         id: messageData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
         senderId: messageData['senderId'] ?? 'unknown',
         senderName: messageData['senderName'] ?? 'Unknown Device',
-        receiverId: messageData['receiverId'] ?? 'me',
+        receiverId: messageData['receiverId'] ?? AuthService.instance.currentUser?.id ?? 'unknown',
         content: messageData['content'] ?? '',
         type: _parseMessageType(messageData['type']),
         status: MessageStatus.delivered,
