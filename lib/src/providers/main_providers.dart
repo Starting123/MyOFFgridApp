@@ -9,6 +9,7 @@ import '../services/cloud_sync_service.dart';
 import '../services/nearby_service.dart';
 import '../services/p2p_service.dart';
 import '../services/location_service.dart';
+import 'real_data_providers.dart';
 
 // ============================================================================
 // CORE SERVICE PROVIDERS - SINGLETONS
@@ -207,14 +208,12 @@ final connectionTypeProvider = Provider<String>((ref) {
   return AppState.connectionType;
 });
 
-final nearbyDevicesProvider = Provider<List<NearbyDevice>>((ref) {
-  ref.watch(_stateCounterProvider);
-  return AppState.nearbyDevices;
+final nearbyDevicesProvider = Provider<AsyncValue<List<NearbyDevice>>>((ref) {
+  return ref.watch(realNearbyDevicesStreamProvider);
 });
 
-final messagesProvider = Provider<List<ChatMessage>>((ref) {
-  ref.watch(_stateCounterProvider);
-  return AppState.messages;
+final messagesProvider = Provider<AsyncValue<List<ChatMessage>>>((ref) {
+  return ref.watch(realAllMessagesStreamProvider);
 });
 
 final currentConversationProvider = Provider<String?>((ref) {
@@ -232,18 +231,30 @@ final emergencyModeProvider = Provider<bool>((ref) {
 });
 
 final sosDevicesProvider = Provider<List<NearbyDevice>>((ref) {
-  final nearbyDevices = ref.watch(nearbyDevicesProvider);
-  return nearbyDevices.where((device) => device.isSOSActive).toList();
+  final nearbyDevicesAsync = ref.watch(nearbyDevicesProvider);
+  return nearbyDevicesAsync.when(
+    data: (devices) => devices.where((device) => device.isSOSActive).toList(),
+    loading: () => [],
+    error: (_, __) => [],
+  );
 });
 
 final rescuerDevicesProvider = Provider<List<NearbyDevice>>((ref) {
-  final nearbyDevices = ref.watch(nearbyDevicesProvider);
-  return nearbyDevices.where((device) => device.isRescuerActive).toList();
+  final nearbyDevicesAsync = ref.watch(nearbyDevicesProvider);
+  return nearbyDevicesAsync.when(
+    data: (devices) => devices.where((device) => device.isRescuerActive).toList(),
+    loading: () => [],
+    error: (_, __) => [],
+  );
 });
 
 final connectedDevicesCountProvider = Provider<int>((ref) {
-  final nearbyDevices = ref.watch(nearbyDevicesProvider);
-  return nearbyDevices.where((device) => device.isConnected).length;
+  final nearbyDevicesAsync = ref.watch(nearbyDevicesProvider);
+  return nearbyDevicesAsync.when(
+    data: (devices) => devices.where((device) => device.isConnected).length,
+    loading: () => 0,
+    error: (_, __) => 0,
+  );
 });
 
 // ============================================================================
@@ -267,15 +278,34 @@ final pendingMessagesProvider = FutureProvider<List<ChatMessage>>((ref) async {
 // Legacy names for backward compatibility
 final realConnectionStatusProvider = Provider<bool>((ref) => ref.watch(connectionStatusProvider));
 final realConnectionTypeProvider = Provider<String>((ref) => ref.watch(connectionTypeProvider));
-final realNearbyDevicesProvider = Provider<List<NearbyDevice>>((ref) => ref.watch(nearbyDevicesProvider));
+final realNearbyDevicesProvider = Provider<List<NearbyDevice>>((ref) {
+  final nearbyDevicesAsync = ref.watch(nearbyDevicesProvider);
+  return nearbyDevicesAsync.when(
+    data: (devices) => devices,
+    loading: () => [],
+    error: (_, __) => [],
+  );
+});
 final realSOSModeProvider = Provider<bool>((ref) => ref.watch(sosActiveModeProvider));
 final realRescuerModeProvider = Provider<bool>((ref) => ref.watch(rescuerActiveModeProvider));
 
 // Chat state for complex screens
 final chatStateProvider = Provider<ChatState>((ref) {
-  final messages = ref.watch(messagesProvider);
+  final messagesAsync = ref.watch(messagesProvider);
   final currentConversation = ref.watch(currentConversationProvider);
-  final nearbyDevices = ref.watch(nearbyDevicesProvider);
+  final nearbyDevicesAsync = ref.watch(nearbyDevicesProvider);
+  
+  final messages = messagesAsync.when(
+    data: (msgs) => msgs,
+    loading: () => <ChatMessage>[],
+    error: (_, __) => <ChatMessage>[],
+  );
+  
+  final nearbyDevices = nearbyDevicesAsync.when(
+    data: (devices) => devices,
+    loading: () => <NearbyDevice>[],
+    error: (_, __) => <NearbyDevice>[],
+  );
   
   return ChatState(
     messages: messages,

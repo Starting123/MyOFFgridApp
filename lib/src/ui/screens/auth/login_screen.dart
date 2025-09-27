@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../utils/logger.dart';
+import '../../../services/auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -215,11 +216,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required String phone,
     required String password,
   }) async {
-    // TODO: Implement actual login logic
-    // This would integrate with your auth_service
-    await Future.delayed(const Duration(seconds: 2)); // Simulate API call
-    
-    // Mock success - replace with actual service call
-    Logger.info('Logging in user: $phone', 'auth');
+    try {
+      Logger.info('Attempting to log in user: $phone', 'auth');
+      
+      // Use the real AuthService for login
+      final user = await AuthService.instance.signIn(email: phone);
+      
+      if (user != null) {
+        Logger.success('User logged in successfully: ${user.name}', 'auth');
+      } else {
+        throw Exception('Login failed: Invalid credentials');
+      }
+    } catch (e) {
+      Logger.error('Login failed: $e', 'auth');
+      rethrow;
+    }
   }
 }

@@ -1,51 +1,93 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user_role.dart';
+import '../../../models/chat_models.dart';
+import '../../../services/local_db_service.dart';
+import '../../../services/service_coordinator.dart';
 import '../../widgets/common/reusable_widgets.dart';
 import '../../../utils/logger.dart';
 
-// Mock providers - replace with actual service providers
-final chatUsersProvider = Provider<List<Map<String, dynamic>>>((ref) {
-  return [
-    {
-      'id': '1',
-      'name': 'Rescue Team Alpha',
-      'phone': '+1234567893',
-      'role': UserRole.rescueUser,
-      'lastMessage': 'We are 2 minutes away from your location',
-      'lastMessageTime': DateTime.now().subtract(const Duration(minutes: 1)),
-      'unreadCount': 2,
-      'isOnline': true,
-    },
-    {
-      'id': '2',
-      'name': 'Alice Emergency',
-      'phone': '+1234567891',
-      'role': UserRole.sosUser,
-      'lastMessage': 'Please help! I\'m stuck near the bridge',
-      'lastMessageTime': DateTime.now().subtract(const Duration(minutes: 5)),
-      'unreadCount': 0,
-      'isOnline': true,
-    },
-    {
-      'id': '3',
-      'name': 'Relay Station 1',
-      'phone': '+1234567895',
-      'role': UserRole.relayUser,
-      'lastMessage': 'Signal relayed successfully',
-      'lastMessageTime': DateTime.now().subtract(const Duration(hours: 1)),
-      'unreadCount': 0,
-      'isOnline': false,
-    },
-  ];
+// Real provider using SQLite conversations
+final chatConversationsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final dbService = LocalDatabaseService();
+  final coordinator = ServiceCoordinator.instance;
+  
+  try {
+    // Get conversations from SQLite
+    final conversations = await dbService.getConversations();
+    final nearbyDevices = coordinator.isInitialized 
+        ? await coordinator.deviceStream.first 
+        : <NearbyDevice>[];
+    
+    // Transform database conversations to UI format
+    final List<Map<String, dynamic>> chatUsers = [];
+    
+    for (final conversation in conversations) {
+      // Find corresponding nearby device for online status
+      final device = nearbyDevices.firstWhere(
+        (d) => d.id == conversation['participantId'],
+        orElse: () => NearbyDevice(
+          id: conversation['participantId'],
+          name: conversation['participantName'] ?? 'Unknown User',
+          role: _mapStringToDeviceRole(conversation['participantRole'] ?? 'normal'),
+          isSOSActive: false,
+          isRescuerActive: false,
+          lastSeen: DateTime.now(),
+          signalStrength: 0,
+          isConnected: false,
+          connectionType: 'none',
+        ),
+      );
+      
+      chatUsers.add({
+        'id': conversation['participantId'],
+        'name': device.name,
+        'phone': conversation['participantPhone'] ?? 'No phone',
+        'role': _mapDeviceRoleToUserRole(device.role),
+        'lastMessage': conversation['lastMessage'] ?? 'No messages yet',
+        'lastMessageTime': conversation['lastMessageTime'] != null 
+            ? DateTime.fromMillisecondsSinceEpoch(conversation['lastMessageTime'])
+            : DateTime.now(),
+        'unreadCount': conversation['unreadCount'] ?? 0,
+        'isOnline': device.isConnected,
+      });
+    }
+    
+    return chatUsers;
+  } catch (e) {
+    Logger.error('Failed to load chat conversations: $e');
+    return [];
+  }
 });
+
+DeviceRole _mapStringToDeviceRole(String role) {
+  switch (role.toLowerCase()) {
+    case 'sosuser':
+      return DeviceRole.sosUser;
+    case 'rescuer':
+      return DeviceRole.rescuer;
+    default:
+      return DeviceRole.normal;
+  }
+}
+
+UserRole _mapDeviceRoleToUserRole(DeviceRole role) {
+  switch (role) {
+    case DeviceRole.sosUser:
+      return UserRole.sosUser;
+    case DeviceRole.rescuer:
+      return UserRole.rescueUser;
+    case DeviceRole.normal:
+      return UserRole.relayUser;
+  }
+}
 
 class ChatListScreen extends ConsumerWidget {
   const ChatListScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chatUsers = ref.watch(chatUsersProvider);
+    final chatUsersAsync = ref.watch(chatConversationsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -64,15 +106,48 @@ class ChatListScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () => _refreshChats(ref),
-        child: chatUsers.isEmpty
-            ? _buildEmptyState(context, theme)
-            : ListView.builder(
-                itemCount: chatUsers.length,
-                itemBuilder: (context, index) {
-                  final user = chatUsers[index];
-                  return _buildChatItem(context, user, theme);
-                },
-              ),
+        child: chatUsersAsync.when(
+          data: (chatUsers) => chatUsers.isEmpty
+              ? _buildEmptyState(context, theme)
+              : ListView.builder(
+                  itemCount: chatUsers.length,
+                  itemBuilder: (context, index) {
+                    final user = chatUsers[index];
+                    return _buildChatItem(context, user, theme);
+                  },
+                ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load conversations',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  error.toString(),
+                  style: theme.textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(chatConversationsProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -242,9 +317,19 @@ class ChatListScreen extends ConsumerWidget {
   }
 
   Future<void> _refreshChats(WidgetRef ref) async {
-    // TODO: Implement chat refresh with chat_service
-    await Future.delayed(const Duration(seconds: 1));
-    Logger.info('Refreshing chats...', 'chat');
+    try {
+      Logger.info('Refreshing conversations...', 'chat');
+      
+      // Invalidate the provider to force a refresh
+      ref.invalidate(chatConversationsProvider);
+      
+      // Also refresh service coordinator to update device connections
+      await ServiceCoordinator.instance.initializeAll();
+      
+      Logger.info('Conversations refreshed successfully', 'chat');
+    } catch (e) {
+      Logger.error('Failed to refresh conversations: $e', 'chat');
+    }
   }
 
   void _showNewChatDialog(BuildContext context) {

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/service_coordinator.dart';
 import '../services/location_service.dart';
+import '../models/chat_models.dart';
 import '../utils/logger.dart';
 
 // Enhanced SOS State Model with production-ready features
@@ -266,9 +267,25 @@ final sosProvider = AsyncNotifierProvider<SOSNotifier, SOSAppState>(() {
 });
 
 // Provider for SOS-related devices (nearby users who can help)
-final sosNearbyHelpProvider = Provider<AsyncValue<List<String>>>((ref) {
-  // This would be connected to the device discovery system
-  return const AsyncValue.data([]);
+final sosNearbyHelpProvider = StreamProvider<List<String>>((ref) {
+  // Use real device discovery system from ServiceCoordinator
+  final coordinator = ServiceCoordinator.instance;
+  
+  // Initialize if not already done
+  if (!coordinator.isInitialized) {
+    coordinator.initializeAll().catchError((e) {
+      Logger.error('Failed to initialize ServiceCoordinator: $e');
+      return false;
+    });
+  }
+  
+  // Return stream of rescuer device IDs
+  return coordinator.deviceStream.map((devices) {
+    return devices
+        .where((device) => device.isRescuerActive || device.role == DeviceRole.rescuer)
+        .map((device) => device.id)
+        .toList();
+  });
 });
 
 // Provider for SOS statistics
