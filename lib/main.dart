@@ -26,11 +26,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/ui/main_app.dart';
 import 'src/services/service_coordinator.dart';
+import 'src/services/firebase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize core services before app startup
+  // Initialize Firebase first
+  try {
+    await FirebaseService.instance.initialize();
+    debugPrint('🔥 Firebase initialized successfully');
+  } catch (e) {
+    debugPrint('⚠️ Firebase initialization warning: $e');
+    // App can still run without Firebase
+  }
+
+  // Initialize core services before app startup  
   try {
     await ServiceCoordinator.instance.initializeAll();
     debugPrint('✅ All services initialized successfully');

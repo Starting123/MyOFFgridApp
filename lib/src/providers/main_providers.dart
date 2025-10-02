@@ -5,7 +5,6 @@ import '../models/chat_models.dart';
 import '../services/chat_service.dart';
 import '../services/local_db_service.dart';
 import '../services/encryption_service.dart';
-import '../services/cloud_sync_service.dart';
 import '../services/nearby_service.dart';
 import '../services/p2p_service.dart';
 import '../services/location_service.dart';
@@ -21,10 +20,6 @@ final databaseServiceProvider = Provider<LocalDatabaseService>((ref) {
 
 final encryptionServiceProvider = Provider<EncryptionService>((ref) {
   return EncryptionService.instance;
-});
-
-final cloudSyncServiceProvider = Provider<EnhancedCloudSync>((ref) {
-  return EnhancedCloudSync.instance;
 });
 
 final nearbyServiceProvider = Provider<NearbyService>((ref) {
@@ -569,9 +564,8 @@ class AppActions {
 
   static Future<void> syncToCloud(WidgetRef ref) async {
     try {
-      final cloudSync = ref.read(cloudSyncServiceProvider);
-      await cloudSync.uploadPending();
-      debugPrint('☁️ Cloud sync completed successfully');
+      // Cloud sync functionality will be implemented later
+      debugPrint('☁️ Cloud sync placeholder - will be implemented with Firebase');
     } catch (e) {
       debugPrint('❌ Error syncing to cloud: $e');
     }

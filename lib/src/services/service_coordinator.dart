@@ -8,7 +8,6 @@ import 'p2p_service.dart';
 import 'ble_service.dart';
 import 'sos_broadcast_service.dart';
 import 'auth_service.dart';
-import 'cloud_sync_service.dart';
 import 'local_db_service.dart';
 import 'error_handler_service.dart';
 import 'mesh_network_service.dart';
@@ -26,7 +25,6 @@ class ServiceCoordinator {
   final BLEService _bleService = BLEService.instance;
   final SOSBroadcastService _sosService = SOSBroadcastService.instance;
   final AuthService _authService = AuthService.instance;
-  final EnhancedCloudSync _cloudSync = EnhancedCloudSync.instance;
   final LocalDatabaseService _dbService = LocalDatabaseService();
   final ErrorHandlerService _errorHandler = ErrorHandlerService.instance;
   final MeshNetworkService _meshService = MeshNetworkService.instance;
@@ -84,9 +82,8 @@ class ServiceCoordinator {
         Logger.warning('No communication services available, continuing in limited mode');
       }
 
-      // Initialize cloud sync
-      _serviceStatus['cloud'] = true;
-      _cloudSync.startAutoSync();
+      // Cloud sync removed - will be implemented separately
+      _serviceStatus['cloud'] = false;
 
       // Start unified device discovery
       await _startUnifiedDiscovery();
@@ -826,7 +823,6 @@ class ServiceCoordinator {
     _messageController.close();
     _nearbyService.dispose();
     _p2pService.dispose();
-    _cloudSync.dispose();
     _meshService.dispose();
   }
 }

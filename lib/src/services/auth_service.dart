@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/user_model.dart';
 import '../utils/logger.dart';
 import 'service_coordinator.dart';
+import 'firebase_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -233,13 +237,68 @@ class AuthService {
     _userStreamController.add(null);
   }
 
-  /// Sync user to cloud when internet available
+  /// Sync user to Firebase cloud when internet available
   Future<void> syncToCloud() async {
     if (_currentUser == null || _currentUser!.isSyncedToCloud) return;
 
     try {
-      // TODO: Implement actual cloud sync
-      // For now, just mark as synced
+      // Check if Firebase is initialized
+      if (!FirebaseService.instance.isInitialized) {
+        Logger.warning('🔥 Firebase not initialized - cannot sync to cloud');
+        return;
+      }
+
+      // Check internet connectivity
+      final connectivity = Connectivity();
+      final connectivityResult = await connectivity.checkConnectivity();
+      if (connectivityResult == ConnectivityResult.none) {
+        Logger.warning('📡 Device offline - cannot sync to cloud');
+        return;
+      }
+
+      Logger.info('🚀 Starting Firebase cloud sync for user: ${_currentUser!.email}');
+
+      final firebaseAuth = FirebaseAuth.instance;
+      final firestore = FirebaseFirestore.instance;
+      
+      User? firebaseUser = firebaseAuth.currentUser;
+
+      // For now, we'll just sync to Firestore without authentication
+      // In a real app, you'd handle Firebase Auth properly
+      if (firebaseUser == null) {
+        Logger.info('⚠️ No Firebase user authenticated, creating anonymous session');
+        // Create anonymous user for demo purposes
+        final credential = await firebaseAuth.signInAnonymously();
+        firebaseUser = credential.user;
+      }
+
+      if (firebaseUser != null) {
+        // Sync user data to Firestore
+        final userDoc = firestore.collection('users').doc(firebaseUser.uid);
+        
+        await userDoc.set({
+          'id': _currentUser!.id,
+          'name': _currentUser!.name,
+          'email': _currentUser!.email,
+          'phone': _currentUser!.phone,
+          'profileImageUrl': _currentUser!.profileImageUrl,
+          'role': _currentUser!.role,
+          'lastSeen': _currentUser!.lastSeen?.toIso8601String(),
+          'createdAt': _currentUser!.createdAt?.toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+          'isOnline': true,
+          'isSyncedToCloud': true,
+          'deviceInfo': {
+            'platform': 'flutter',
+            'lastSyncTime': DateTime.now().toIso8601String(),
+          }
+        }, SetOptions(merge: true));
+
+        Logger.success('📤 User data uploaded to Firestore successfully!');
+        Logger.info('🆔 Firebase UID: ${firebaseUser.uid}');
+      }
+
+      // Update local user as synced
       final updatedUser = UserModel(
         id: _currentUser!.id,
         name: _currentUser!.name,
@@ -258,9 +317,10 @@ class AuthService {
       _currentUser = updatedUser;
       _userStreamController.add(_currentUser);
       
-      Logger.success('User synced to cloud');
+      Logger.success('✅ User successfully synced to Firebase Cloud!');
+      
     } catch (e) {
-      Logger.error('Error syncing user to cloud: $e');
+      Logger.error('❌ Error syncing user to Firebase cloud: $e');
     }
   }
 
