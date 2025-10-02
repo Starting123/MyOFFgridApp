@@ -53,5 +53,6 @@ functions/node_modules/
 functions/.env
 
 # Problematic files from Firebase init
-"nd to SOS with status updates."
-"Rules → firestore.rules"
+*SOS with status updates*
+*Rules*firestore.rules*
+nd*
