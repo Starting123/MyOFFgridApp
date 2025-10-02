@@ -3,6 +3,9 @@ import 'package:offgrid_sos/src/services/nearby_service.dart';
 import 'package:offgrid_sos/src/utils/debug_helper.dart';
 
 void main() {
+  // Initialize Flutter binding for tests
+  TestWidgetsFlutterBinding.ensureInitialized();
+  
   group('Device Discovery Tests', () {
     late NearbyService nearbyService;
 
