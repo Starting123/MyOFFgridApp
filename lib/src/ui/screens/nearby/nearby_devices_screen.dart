@@ -17,6 +17,67 @@ class NearbyDevicesScreen extends ConsumerStatefulWidget {
 
 class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> {
   bool _isScanning = false;
+  bool _autoScanStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Automatically start scanning for SOS devices when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAutoScan();
+    });
+  }
+
+  // Automatic scanning for rescuer mode - no button press needed!
+  Future<void> _startAutoScan() async {
+    if (_autoScanStarted) return;
+    
+    _autoScanStarted = true;
+    Logger.info('🚑 Rescuer mode: Auto-starting SOS device detection', 'nearby');
+    
+    await _startRescuerDiscovery();
+  }
+
+  // Enhanced rescuer discovery that prioritizes SOS devices
+  Future<void> _startRescuerDiscovery() async {
+    if (_isScanning) return;
+    
+    setState(() {
+      _isScanning = true;
+    });
+
+    try {
+      final coordinator = ServiceCoordinator.instance;
+      
+      if (!coordinator.isInitialized) {
+        await coordinator.initializeAll();
+      }
+      
+      // Start rescuer-specific discovery for SOS devices
+      Logger.info('🔍 Starting rescuer discovery - automatically scanning for SOS devices', 'nearby');
+      await coordinator.refreshDiscovery();
+      
+      // Keep scanning in background
+      await Future.delayed(const Duration(seconds: 1));
+      
+    } catch (e) {
+      Logger.error('Failed to start rescuer discovery: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Auto-scan failed: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,32 +86,87 @@ class _NearbyDevicesScreenState extends ConsumerState<NearbyDevicesScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nearby Devices'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.medical_services, color: Colors.red, size: 20),
+            const SizedBox(width: 8),
+            const Text('Rescuer Mode - SOS Detection'),
+            if (_isScanning) ...[
+              const SizedBox(width: 8),
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+            ],
+          ],
+        ),
         centerTitle: true,
+        backgroundColor: Colors.blue.shade700,
         actions: [
           IconButton(
-            onPressed: _isScanning ? null : () => _startScanning(),
-            icon: _isScanning 
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh),
-            tooltip: _isScanning ? 'Scanning...' : 'Scan for devices',
+            onPressed: () => _startRescuerDiscovery(),
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh SOS scan',
           ),
         ],
       ),
-      body: nearbyDevicesAsync.when(
-        data: (devices) => _buildDeviceList(context, devices, theme),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => _buildErrorState(context, error.toString(), theme),
+      body: Column(
+        children: [
+          // Auto-scan status banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            color: Colors.green.shade50,
+            child: Row(
+              children: [
+                Icon(Icons.autorenew, color: Colors.green.shade700, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '🚑 Auto-scanning for SOS devices - No button press needed!',
+                    style: TextStyle(
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Device list
+          Expanded(
+            child: nearbyDevicesAsync.when(
+              data: (devices) => _buildDeviceList(context, devices, theme),
+              loading: () => const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('🔍 Scanning for SOS devices...'),
+                  ],
+                ),
+              ),
+              error: (error, stack) => _buildErrorState(context, error.toString(), theme),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isScanning ? null : () => _startScanning(),
-        icon: const Icon(Icons.radar),
-        label: Text(_isScanning ? 'Scanning...' : 'Scan Devices'),
-        backgroundColor: _isScanning ? Colors.grey : null,
+        onPressed: () => _startRescuerDiscovery(),
+        backgroundColor: _isScanning ? Colors.grey : Colors.red.shade600,
+        label: _isScanning 
+            ? const Text('Scanning for SOS...')
+            : const Text('Find SOS Devices'),
+        icon: _isScanning 
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.medical_services),
       ),
     );
   }

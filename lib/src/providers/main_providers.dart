@@ -5,9 +5,11 @@ import '../models/chat_models.dart';
 import '../services/chat_service.dart';
 import '../services/local_db_service.dart';
 import '../services/encryption_service.dart';
-import '../services/nearby_service.dart';
+import '../services/nearby_service_fixed.dart';
 import '../services/p2p_service.dart';
 import '../services/location_service.dart';
+import '../services/firebase_service.dart';
+import '../utils/logger.dart';
 import 'real_data_providers.dart';
 
 // ============================================================================
@@ -32,6 +34,10 @@ final p2pServiceProvider = Provider<P2PService>((ref) {
 
 final locationServiceProvider = Provider<LocationService>((ref) {
   return LocationService.instance;
+});
+
+final firebaseServiceProvider = Provider<FirebaseService>((ref) {
+  return FirebaseService.instance;
 });
 
 final multimediaChatServiceProvider = Provider<MultimediaChatService>((ref) {
@@ -476,15 +482,12 @@ class AppActions {
       // Start advertising as emergency device
       await nearbyService.startAdvertising('SOS_EMERGENCY');
       
-      // Broadcast SOS via multiple channels
-      await Future.wait([
-        nearbyService.broadcastSOS(
-          deviceId: 'current_device',
-          message: serializedPayload,
-          additionalData: sosPayload,
-        ),
-        nearbyService.sendMessage(serializedPayload, type: 'sos_broadcast'),
-      ]);
+      // Broadcast SOS via Nearby Service
+      await nearbyService.broadcastSOS(
+        deviceId: 'current_device',
+        message: serializedPayload,
+        additionalData: sosPayload,
+      );
 
       // Start discovery to find rescuers
       await startDiscovery(ref);
@@ -551,7 +554,7 @@ class AppActions {
         'isEncrypted': isEncrypted,
       };
 
-      await nearbyService.sendMessage(jsonEncode(messagePayload), type: 'chat');
+      await nearbyService.sendMessageLegacy(jsonEncode(messagePayload), type: 'chat');
 
       // Mark as sent
       await dbService.updateMessageStatus(message.id, MessageStatus.sent);
@@ -564,10 +567,12 @@ class AppActions {
 
   static Future<void> syncToCloud(WidgetRef ref) async {
     try {
-      // Cloud sync functionality will be implemented later
-      debugPrint('☁️ Cloud sync placeholder - will be implemented with Firebase');
+      final firebaseService = ref.read(firebaseServiceProvider);
+      await firebaseService.syncToCloud();
+      Logger.info('Cloud sync completed successfully');
     } catch (e) {
-      debugPrint('❌ Error syncing to cloud: $e');
+      Logger.error('Error syncing to cloud: $e');
+      rethrow;
     }
   }
 
@@ -617,7 +622,7 @@ class AppActions {
       );
 
       // Attempt connection via Nearby Connections
-      final connectionSuccess = await nearbyService.connectToEndpoint(deviceId);
+      final connectionSuccess = await nearbyService.connectToEndpoint(deviceId, device.name);
       
       if (connectionSuccess) {
         // Update device as connected

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 import 'package:nearby_connections/nearby_connections.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -143,7 +143,7 @@ class NearbyService {
     // Stop current advertising if different name
     if (_isAdvertising) {
       await stopAdvertising();
-      await Future.delayed(const Duration(milliseconds: 1000));
+      await Future.delayed(const Duration(milliseconds: 1500)); // Increased delay for better stability
     }
 
     try {
@@ -227,7 +227,10 @@ class NearbyService {
           debugPrint('🎯 พบอุปกรณ์: $endpointName (ID: $endpointId)');
           _onEndpointFound(endpointId, endpointName, serviceId);
         },
-        onEndpointLost: _onEndpointLost,
+        onEndpointLost: (endpointId) {
+          debugPrint('💔 อุปกรณ์หายไป: $endpointId');
+          _onEndpointLost(endpointId);
+        } as OnEndpointLost,
       );
       
       _isDiscovering = true;
@@ -285,14 +288,19 @@ class NearbyService {
   // Enhanced connection handlers
   void _onConnectionInitiated(String endpointId, ConnectionInfo connectionInfo) {
     debugPrint('🤝 Connection initiated: ${connectionInfo.endpointName}');
+    debugPrint('   Connection type: ${connectionInfo.isIncomingConnection ? "Incoming" : "Outgoing"}');
     
-    // Auto-accept connections (you might want to add user confirmation)
+    // Auto-accept connections for emergency communication
     _nearby.acceptConnection(
       endpointId, 
       onPayLoadRecieved: (String endpointId, Payload payload) {
         _onPayloadReceived(endpointId, payload);
       },
-    );
+    ).then((_) {
+      debugPrint('✅ Auto-accepted connection from: ${connectionInfo.endpointName}');
+    }).catchError((error) {
+      debugPrint('❌ Failed to accept connection: $error');
+    });
   }
 
   void _onConnectionResult(String endpointId, Status status) {
@@ -310,13 +318,22 @@ class NearbyService {
   }
 
   void _onEndpointFound(String endpointId, String endpointName, String serviceId) {
-    debugPrint('🎯 พบอุปกรณ์: $endpointName');
+    debugPrint('🎯 พบอุปกรณ์: $endpointName (Service: $serviceId)');
+    
+    // Mark if this is likely an SOS device based on name pattern
+    final isSOSDevice = endpointName.contains('SOS') || endpointName.contains('Emergency');
     
     _deviceFoundController.add({
       'endpointId': endpointId,
       'endpointName': endpointName,
       'serviceId': serviceId,
+      'isSOSDevice': isSOSDevice,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
+    
+    if (isSOSDevice) {
+      debugPrint('🚨 SOS Device detected! Prioritizing connection...');
+    }
   }
 
   void _onEndpointLost(String endpointId) {
@@ -357,6 +374,61 @@ class NearbyService {
     }
   }
 
+  // Start advertising specifically for SOS mode
+  Future<bool> startSOSAdvertising() async {
+    final sosDeviceName = 'SOS_Emergency_${DateTime.now().millisecondsSinceEpoch}';
+    debugPrint('🚨 Starting SOS advertising as: $sosDeviceName');
+    
+    final result = await startAdvertising(sosDeviceName);
+    if (result) {
+      debugPrint('✅ SOS device is now discoverable by rescuers');
+      debugPrint('📶 Rescuer devices should see this device in their scan');
+    }
+    return result;
+  }
+  
+  // Start discovery specifically for rescuer mode
+  Future<bool> startRescuerDiscovery() async {
+    debugPrint('🔍 Starting rescuer discovery - looking for SOS devices...');
+    
+    final result = await startDiscovery();
+    if (result) {
+      debugPrint('✅ Rescuer is now scanning for SOS devices');
+      debugPrint('🔍 Will detect any nearby SOS_Emergency_* devices');
+    }
+    return result;
+  }
+  
+  // Enhanced SOS message broadcasting
+  Future<void> broadcastSOS({
+    required String deviceId,
+    required String message,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    final payload = {
+      'type': 'sos',
+      'deviceId': deviceId,
+      'message': message,
+      'timestamp': DateTime.now().toIso8601String(),
+      'isEmergency': true,
+      ...?additionalData,
+    };
+
+    final jsonData = jsonEncode(payload);
+    final bytes = Uint8List.fromList(jsonData.codeUnits);
+
+    debugPrint('🚨 Broadcasting SOS to ${_connectedEndpoints.length} connected devices');
+    
+    for (final endpointId in _connectedEndpoints) {
+      try {
+        await _nearby.sendBytesPayload(endpointId, bytes);
+        debugPrint('✅ SOS sent to: $endpointId');
+      } catch (e) {
+        debugPrint('❌ Failed to send SOS to $endpointId: $e');
+      }
+    }
+  }
+
   // Connect to a discovered endpoint
   Future<bool> connectToEndpoint(String endpointId, String endpointName) async {
     try {
@@ -373,6 +445,40 @@ class NearbyService {
       return true;
     } catch (e) {
       debugPrint('❌ Error connecting to endpoint: $e');
+      return false;
+    }
+  }
+
+  // Disconnect from a specific endpoint
+  Future<void> disconnectFromEndpoint(String endpointId) async {
+    try {
+      debugPrint('🔌 Disconnecting from endpoint: $endpointId');
+      await _nearby.disconnectFromEndpoint(endpointId);
+      _connectedEndpoints.remove(endpointId);
+      debugPrint('✅ Disconnected from: $endpointId');
+    } catch (e) {
+      debugPrint('❌ Error disconnecting from endpoint $endpointId: $e');
+    }
+  }
+
+  // Backward compatibility method for old API
+  Future<bool> sendMessageLegacy(String message, {String? type}) async {
+    try {
+      if (_connectedEndpoints.isEmpty) {
+        debugPrint('❌ No connected endpoints for legacy sendMessage');
+        return false;
+      }
+      
+      final data = {
+        'message': message,
+        'type': type ?? 'chat',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      
+      final endpointId = _connectedEndpoints.first;
+      return await sendMessage(endpointId, data);
+    } catch (e) {
+      debugPrint('❌ Error in legacy sendMessage: $e');
       return false;
     }
   }

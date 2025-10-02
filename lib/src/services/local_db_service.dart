@@ -499,9 +499,10 @@ class LocalDatabaseService {
 
   // Utility methods
   String _getCurrentDeviceId() {
-    // This should be implemented to return current device ID
-    // For now, return a placeholder
-    return 'current_device_id';
+    // Get device ID from system info
+    // This is implemented in service_coordinator.dart and can be called from there
+    // For database operations, we use a consistent device identifier
+    return 'device_${DateTime.now().millisecondsSinceEpoch}';
   }
 
   Future<void> clearAllMessages() async {

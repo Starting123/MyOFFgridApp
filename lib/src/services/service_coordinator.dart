@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/chat_models.dart';
 import '../utils/logger.dart';
-import 'nearby_service.dart';
+import 'nearby_service_fixed.dart' as NearbyServiceFixed;
+// Use the fixed version for better SOS-Rescuer communication
 import 'p2p_service.dart';
 import 'ble_service.dart';
 import 'sos_broadcast_service.dart';
@@ -20,7 +21,7 @@ class ServiceCoordinator {
   ServiceCoordinator._internal();
 
   // Service instances
-  final NearbyService _nearbyService = NearbyService.instance;
+  final NearbyServiceFixed.NearbyService _nearbyService = NearbyServiceFixed.NearbyService.instance;
   final P2PService _p2pService = P2PService.instance;
   final BLEService _bleService = BLEService.instance;
   final SOSBroadcastService _sosService = SOSBroadcastService.instance;
@@ -340,11 +341,15 @@ class ServiceCoordinator {
         
         switch (service) {
           case 'nearby':
-            await _nearbyService.sendMessage(
-              jsonEncode(messageData), 
-              type: message.isEmergency ? 'sos' : 'chat'
-            );
-            sent = true;
+            // Find a connected endpoint to send to
+            if (_nearbyService.connectedEndpoints.isNotEmpty) {
+              final endpointId = _nearbyService.connectedEndpoints.first;
+              await _nearbyService.sendMessage(endpointId, messageData);
+              sent = true;
+            } else {
+              debugPrint('❌ No connected endpoints available for message');
+              sent = false;
+            }
             break;
           case 'p2p':
             // Enhanced P2P sending with connection verification
@@ -455,20 +460,19 @@ class ServiceCoordinator {
       final broadcastTasks = <Future>[];
       
       if (_serviceStatus['nearby'] == true) {
-        debugPrint('📡 Starting advertising and SOS broadcast...');
-        // Start advertising so other devices can discover this SOS device
-        final advertisingName = 'SOS_Emergency_${DateTime.now().millisecondsSinceEpoch}';
-        debugPrint('📡 Advertising as: $advertisingName');
-        broadcastTasks.add(_nearbyService.startAdvertising(advertisingName));
+        debugPrint('📡 Starting SOS advertising and broadcast...');
         
-        // Broadcast SOS message
+        // Use the new SOS-specific advertising method
+        broadcastTasks.add(_nearbyService.startSOSAdvertising());
+        
+        // Broadcast SOS message to any already connected devices
         broadcastTasks.add(_nearbyService.broadcastSOS(
           deviceId: sosData['deviceId'] as String,
           message: jsonEncode(sosData),
           additionalData: sosData,
         ));
       } else {
-        debugPrint('⚠️ Nearby service not available for advertising - status: ${_serviceStatus['nearby']}');
+        debugPrint('⚠️ Nearby service not available for SOS - status: ${_serviceStatus['nearby']}');
       }
       
       // Use _sosService for additional SOS functionality
@@ -516,7 +520,14 @@ class ServiceCoordinator {
       bool connected = false;
       switch (device.connectionType) {
         case 'nearby':
-          connected = await _nearbyService.connectToEndpoint(deviceId);
+          // Find the device name from discovered devices or use default
+          final deviceName = _discoveredDevices
+              .firstWhere((d) => d.id == deviceId, orElse: () => NearbyDevice(
+                id: deviceId, name: 'Unknown Device', role: DeviceRole.normal,
+                isSOSActive: false, isRescuerActive: false, lastSeen: DateTime.now(),
+                signalStrength: 0, isConnected: false, connectionType: 'nearby'
+              )).name;
+          connected = await _nearbyService.connectToEndpoint(deviceId, deviceName);
           break;
         case 'p2p':
           // P2P connection logic - P2P uses discovery/advertising, not direct connection to deviceId
@@ -738,7 +749,10 @@ class ServiceCoordinator {
           if (_serviceStatus['nearby'] == true) {
             // Check if target device is connected
             if (_nearbyService.connectedEndpoints.contains(deviceId)) {
-              await _nearbyService.sendMessage(data, type: 'mesh');
+              // Send mesh message to all connected endpoints
+              for (final endpointId in _nearbyService.connectedEndpoints) {
+                await _nearbyService.sendMessage(endpointId, jsonDecode(data));
+              }
               return true;
             }
           }
@@ -835,6 +849,50 @@ class ServiceCoordinator {
       Logger.error('Failed to update device role: $e', 'coordinator');
       return false;
     }
+  }
+
+  /// Public method to refresh device discovery for SOS scanning
+  Future<void> refreshDiscovery() async {
+    Logger.info('🔄 Manually refreshing device discovery...', 'coordinator');
+    
+    if (!_isInitialized) {
+      Logger.warning('Services not initialized, initializing first...', 'coordinator');
+      await initializeAll();
+      return;
+    }
+    
+    // Refresh all active services
+    if (_serviceStatus['nearby'] == true) {
+      try {
+        await _nearbyService.startDiscovery();
+        Logger.info('✅ Nearby discovery refreshed', 'coordinator');
+      } catch (e) {
+        Logger.error('Failed to refresh nearby discovery: $e', 'coordinator');
+      }
+    }
+    
+    if (_serviceStatus['p2p'] == true) {
+      try {
+        await _p2pService.startDiscovery();
+        Logger.info('✅ P2P discovery refreshed', 'coordinator');
+      } catch (e) {
+        Logger.error('Failed to refresh P2P discovery: $e', 'coordinator');
+      }
+    }
+    
+    if (_serviceStatus['ble'] == true) {
+      try {
+        await _bleService.startScanning();
+        Logger.info('✅ BLE scanning refreshed', 'coordinator');
+      } catch (e) {
+        Logger.error('Failed to refresh BLE scanning: $e', 'coordinator');
+      }
+    }
+    
+    // Refresh device list immediately
+    _refreshDeviceList();
+    
+    Logger.success('🚑 Discovery refresh complete - scanning for SOS devices', 'coordinator');
   }
 
   /// Cleanup resources
