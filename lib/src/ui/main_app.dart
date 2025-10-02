@@ -58,8 +58,7 @@ class AuthCheckScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // TODO: Check if user is logged in
-    // For now, always show register screen on first launch
+    // Check authentication status and route accordingly
     return FutureBuilder<bool>(
       future: _checkAuthStatus(),
       builder: (context, snapshot) {

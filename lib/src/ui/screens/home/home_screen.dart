@@ -521,8 +521,16 @@ class HomeScreen extends ConsumerWidget {
   }
 
   void _startChat(BuildContext context, Map<String, dynamic> user) {
-    // TODO: Navigate to chat screen with selected user
-    Navigator.of(context).pushNamed('/chat', arguments: user);
+    // Navigate to chat detail screen with selected user
+    Navigator.of(context).pushNamed(
+      '/chat-detail',
+      arguments: {
+        'userId': user['id'] ?? user['deviceId'] ?? 'unknown',
+        'userName': user['name'] ?? 'Unknown User',
+        'connectionType': user['connectionType'] ?? 'nearby',
+        'isConnected': user['isConnected'] ?? false,
+      },
+    );
     Logger.info('Starting chat with ${user['name']}', 'chat');
   }
 }

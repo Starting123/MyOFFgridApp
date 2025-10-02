@@ -4,6 +4,7 @@ import '../../../models/user_role.dart';
 import '../../../models/chat_models.dart';
 import '../../../services/local_db_service.dart';
 import '../../../services/service_coordinator.dart';
+import '../../../providers/real_data_providers.dart';
 import '../../widgets/common/reusable_widgets.dart';
 import '../../../utils/logger.dart';
 
@@ -333,26 +334,107 @@ class ChatListScreen extends ConsumerWidget {
   }
 
   void _showNewChatDialog(BuildContext context) {
-    // TODO: Show dialog to select user from nearby users
+    // Show dialog to select user from nearby discovered devices
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Chat'),
-        content: const Text('Select a nearby user to start chatting'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: Navigate to user selection
-            },
-            child: const Text('Select User'),
-          ),
-        ],
+      builder: (context) => Consumer(
+        builder: (context, ref, child) {
+          final nearbyDevices = ref.watch(realNearbyDevicesStreamProvider);
+          
+          return AlertDialog(
+            title: const Text('Start New Chat'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: nearbyDevices.when(
+                data: (devices) {
+                  if (devices.isEmpty) {
+                    return const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 48, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No nearby users found',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        Text(
+                          'Make sure Bluetooth and WiFi are enabled',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    );
+                  }
+                  
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: devices.length,
+                    itemBuilder: (context, index) {
+                      final device = devices[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: device.isConnected 
+                              ? Colors.green 
+                              : Colors.grey,
+                          child: Text(
+                            device.name.substring(0, 1).toUpperCase(),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        title: Text(device.name),
+                        subtitle: Text(
+                          '${device.connectionType.toUpperCase()} • '
+                          '${device.isConnected ? "Connected" : "Available"}',
+                        ),
+                        trailing: device.isSOSActive 
+                            ? const Icon(Icons.warning, color: Colors.red)
+                            : device.isRescuerActive 
+                            ? const Icon(Icons.medical_services, color: Colors.blue)
+                            : null,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          // Navigate to chat detail with selected user
+                          _startChatWithUser(context, device);
+                        },
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(
+                  child: Text('Error loading devices: $error'),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Refresh device discovery
+                  ref.invalidate(realNearbyDevicesStreamProvider);
+                },
+                child: const Text('Refresh'),
+              ),
+            ],
+          );
+        },
       ),
+    );
+  }
+
+  void _startChatWithUser(BuildContext context, NearbyDevice device) {
+    // Navigate to chat detail screen with the selected user
+    Navigator.of(context).pushNamed(
+      '/chat-detail',
+      arguments: {
+        'userId': device.id,
+        'userName': device.name,
+        'connectionType': device.connectionType,
+        'isConnected': device.isConnected,
+      },
     );
   }
 }

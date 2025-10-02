@@ -6,6 +6,8 @@ import '../../../models/chat_models.dart' as models;
 import '../../../providers/chat_providers.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/chat_service.dart';
+import '../../../services/service_coordinator.dart';
+import '../../../services/local_db_service.dart';
 import '../../widgets/common/reusable_widgets.dart';
 import '../../../utils/logger.dart';
 
@@ -519,8 +521,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       // Refresh the messages list
       ref.invalidate(chatMessagesProvider(userId));
       
-      // TODO: Send message via P2P service
-      Logger.info('Message saved to database: $message', 'chat');
+      // Send message via ServiceCoordinator P2P system
+      final coordinator = ServiceCoordinator.instance;
+      final sent = await coordinator.sendMessage(chatMessage);
+      
+      if (sent) {
+        Logger.success('Message sent successfully via P2P: $message', 'chat');
+      } else {
+        Logger.warning('Message queued for retry (P2P failed): $message', 'chat');
+        // Message is still saved locally and will be retried automatically
+      }
       
     } catch (e) {
       if (mounted) {
@@ -798,14 +808,64 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     }
   }
 
-  void _blockUser() {
-    // TODO: Implement user blocking
-    Logger.warning('Blocking user: ${widget.user['name']}', 'chat');
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${widget.user['name']} has been blocked'),
+  void _blockUser() async {
+    // Show confirmation dialog before blocking
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Block User'),
+        content: Text(
+          'Are you sure you want to block ${widget.user['name']}? '
+          'You will no longer receive messages from this user.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Block'),
+          ),
+        ],
       ),
     );
+    
+    if (confirmed == true) {
+      try {
+        // Add user to blocked list in local database
+        final dbService = LocalDatabaseService();
+        await dbService.addBlockedUser(
+          widget.user['userId'] ?? widget.user['id'] ?? 'unknown',
+          widget.user['name'] ?? 'Unknown User',
+        );
+        
+        Logger.warning('User blocked: ${widget.user['name']}', 'chat');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${widget.user['name']} has been blocked'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          
+          // Navigate back to chat list
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        Logger.error('Failed to block user: $e', 'chat');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to block user: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 }

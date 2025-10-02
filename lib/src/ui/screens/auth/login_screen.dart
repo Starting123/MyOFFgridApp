@@ -185,7 +185,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // TODO: Implement login with auth_service
+      // Authenticate user via AuthService
       await _loginUser(
         phone: _phoneController.text.trim(),
         password: _passwordController.text,

@@ -324,6 +324,38 @@ class AuthService {
     }
   }
 
+  /// Logout user and clear all data
+  Future<void> logout() async {
+    try {
+      Logger.info('Logging out user: ${_currentUser?.name}', 'auth');
+      
+      // Clear current user
+      _currentUser = null;
+      _userStreamController.add(null);
+      
+      // Clear local storage
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('current_user');
+      
+      // Sign out from Firebase if available
+      if (await FirebaseService.instance.isAvailable()) {
+        try {
+          await FirebaseAuth.instance.signOut();
+          Logger.info('Signed out from Firebase', 'auth');
+        } catch (e) {
+          Logger.warning('Firebase signout failed (offline?): $e', 'auth');
+        }
+      }
+      
+      Logger.success('User logged out successfully', 'auth');
+    } catch (e) {
+      Logger.error('Error during logout: $e', 'auth');
+      // Still clear local state even if cleanup fails
+      _currentUser = null;
+      _userStreamController.add(null);
+    }
+  }
+
   void dispose() {
     _userStreamController.close();
   }

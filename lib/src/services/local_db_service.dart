@@ -509,12 +509,89 @@ class LocalDatabaseService {
     await db.delete('messages');
   }
 
+  // Blocked users management
+  Future<void> addBlockedUser(String userId, String userName) async {
+    final db = await database;
+    
+    // First create the blocked_users table if it doesn't exist
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS blocked_users(
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        blocked_at INTEGER NOT NULL,
+        UNIQUE(user_id)
+      )
+    ''');
+
+    await db.insert(
+      'blocked_users',
+      {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'user_id': userId,
+        'user_name': userName,
+        'blocked_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<bool> isUserBlocked(String userId) async {
+    final db = await database;
+    
+    // Create table if it doesn't exist
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS blocked_users(
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        blocked_at INTEGER NOT NULL,
+        UNIQUE(user_id)
+      )
+    ''');
+
+    final result = await db.query(
+      'blocked_users',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+    
+    return result.isNotEmpty;
+  }
+
+  Future<List<Map<String, dynamic>>> getBlockedUsers() async {
+    final db = await database;
+    
+    // Create table if it doesn't exist
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS blocked_users(
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        blocked_at INTEGER NOT NULL,
+        UNIQUE(user_id)
+      )
+    ''');
+
+    return await db.query('blocked_users', orderBy: 'blocked_at DESC');
+  }
+
+  Future<void> unblockUser(String userId) async {
+    final db = await database;
+    await db.delete(
+      'blocked_users',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+  }
+
   Future<void> clearDatabase() async {
     final db = await database;
     await db.delete('messages');
     await db.delete('nearby_devices');
     await db.delete('conversations');
     await db.delete('file_cache');
+    await db.delete('blocked_users');
   }
 
   Future<void> close() async {

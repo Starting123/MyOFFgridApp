@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import '../models/enhanced_message_model.dart';
 import '../services/nearby_service.dart';
@@ -13,6 +14,14 @@ enum SOSMode {
   disabled   // Normal chat mode
 }
 
+enum SOSStatus {
+  inactive,
+  broadcasting,
+  rescuerResponding,
+  rescueInProgress,
+  resolved
+}
+
 class SOSBroadcastService {
   static final SOSBroadcastService _instance = SOSBroadcastService._internal();
   static SOSBroadcastService get instance => _instance;
@@ -24,9 +33,11 @@ class SOSBroadcastService {
   final LocalDatabaseService _localDb = LocalDatabaseService();
 
   SOSMode _currentMode = SOSMode.disabled;
+  SOSStatus _currentSOSStatus = SOSStatus.inactive;
   Timer? _sosTimer;
   Timer? _locationTimer;
   String? _activeSosId;
+  Function(Map<String, dynamic>)? _onStatusChanged;
   
   // Stream controllers for SOS events
   final StreamController<SOSBroadcast> _sosStreamController = StreamController<SOSBroadcast>.broadcast();
@@ -35,6 +46,11 @@ class SOSBroadcastService {
   Stream<SOSBroadcast> get onSOSReceived => _sosStreamController.stream;
   Stream<SOSMode> get onModeChanged => _modeStreamController.stream;
   SOSMode get currentMode => _currentMode;
+
+  /// Set callback for status changes (for UI updates)
+  void setStatusChangeCallback(Function(Map<String, dynamic>) callback) {
+    _onStatusChanged = callback;
+  }
 
   /// Activate SOS victim mode (RED)
   Future<void> activateVictimMode({
@@ -195,13 +211,94 @@ class SOSBroadcastService {
   /// Handle SOS acknowledgment (for victims)
   void _handleSOSAcknowledgment(String message) {
     Logger.success('Received SOS Acknowledgment: $message', 'sos');
-    // TODO: Show UI notification that help is coming
+    
+    // Show UI notification that help is coming
+    _showSystemNotification(
+      title: 'Help is Coming!',
+      body: 'A rescuer has acknowledged your SOS signal and is on the way.',
+      isUrgent: true,
+    );
+    
+    // Update SOS status to show rescuer is responding
+    _currentSOSStatus = SOSStatus.rescuerResponding;
+    _updateSOSUI();
   }
 
   /// Handle SOS location update
   void _handleSOSLocationUpdate(String message) {
     Logger.info('Received SOS Location Update: $message', 'sos');
-    // TODO: Update victim's location on rescuer's map
+    
+    try {
+      final data = jsonDecode(message);
+      final latitude = data['latitude']?.toDouble();
+      final longitude = data['longitude']?.toDouble();
+      final rescuerName = data['rescuerName'] ?? 'Rescuer';
+      
+      if (latitude != null && longitude != null) {
+        // Update rescuer location on victim's map interface
+        _updateRescuerLocationOnMap(
+          rescuerName: rescuerName,
+          latitude: latitude,
+          longitude: longitude,
+        );
+        
+        // Show notification with rescuer proximity
+        _showSystemNotification(
+          title: 'Rescuer Location Update',
+          body: '$rescuerName is approaching your location.',
+          isUrgent: false,
+        );
+      }
+    } catch (e) {
+      Logger.error('Failed to parse SOS location update: $e', 'sos');
+    }
+  }
+
+  /// Show system notification to user
+  void _showSystemNotification({
+    required String title,
+    required String body,
+    bool isUrgent = false,
+  }) {
+    // In a real app, this would use flutter_local_notifications
+    // For now, we'll use the status callback to update UI
+    Logger.info('NOTIFICATION: $title - $body', 'sos');
+    
+    // Trigger UI update through status callback
+    _onStatusChanged?.call({
+      'type': 'notification',
+      'title': title,
+      'body': body,
+      'urgent': isUrgent,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Update rescuer location on map (called from location updates)
+  void _updateRescuerLocationOnMap({
+    required String rescuerName,
+    required double latitude,
+    required double longitude,
+  }) {
+    Logger.info('Updating rescuer location: $rescuerName at ($latitude, $longitude)', 'sos');
+    
+    // Update rescuer location in the UI
+    _onStatusChanged?.call({
+      'type': 'rescuer_location',
+      'rescuer_name': rescuerName,
+      'latitude': latitude,
+      'longitude': longitude,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Update SOS UI with current status
+  void _updateSOSUI() {
+    _onStatusChanged?.call({
+      'type': 'sos_status',
+      'status': _currentSOSStatus.toString(),
+      'timestamp': DateTime.now().toIso8601String(),
+    });
   }
 
   /// Format SOS message for transmission
