@@ -440,6 +440,7 @@ class ServiceCoordinator {
   /// Broadcast SOS signal via all available services
   Future<void> broadcastSOS(String message, {double? latitude, double? longitude}) async {
     debugPrint('🚨 Broadcasting SOS via all services...');
+    debugPrint('📊 Service Status: $_serviceStatus');
     
     try {
       final sosData = {
@@ -454,11 +455,20 @@ class ServiceCoordinator {
       final broadcastTasks = <Future>[];
       
       if (_serviceStatus['nearby'] == true) {
+        debugPrint('📡 Starting advertising and SOS broadcast...');
+        // Start advertising so other devices can discover this SOS device
+        final advertisingName = 'SOS_Emergency_${DateTime.now().millisecondsSinceEpoch}';
+        debugPrint('📡 Advertising as: $advertisingName');
+        broadcastTasks.add(_nearbyService.startAdvertising(advertisingName));
+        
+        // Broadcast SOS message
         broadcastTasks.add(_nearbyService.broadcastSOS(
           deviceId: sosData['deviceId'] as String,
           message: jsonEncode(sosData),
           additionalData: sosData,
         ));
+      } else {
+        debugPrint('⚠️ Nearby service not available for advertising - status: ${_serviceStatus['nearby']}');
       }
       
       // Use _sosService for additional SOS functionality
