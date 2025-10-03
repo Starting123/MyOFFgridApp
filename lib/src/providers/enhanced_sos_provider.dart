@@ -140,8 +140,8 @@ class SOSNotifier extends AsyncNotifier<SOSAppState> {
       // Broadcast SOS via ServiceCoordinator
       await _coordinator.broadcastSOS(
         'EMERGENCY SOS: Immediate assistance required!',
-        latitude: latitude,
-        longitude: longitude,
+        latitude,
+        longitude,
       );
       
       final newState = SOSAppState(
@@ -209,7 +209,7 @@ class SOSNotifier extends AsyncNotifier<SOSAppState> {
       
       // Broadcast SOS with custom message
       final sosMessage = emergencyMessage ?? 'EMERGENCY SOS: Immediate assistance required!';
-      await _coordinator.broadcastSOS(sosMessage, latitude: lat, longitude: lng);
+      await ServiceCoordinator.instance.broadcastSOS(sosMessage, lat, lng);
       
       final newState = currentState.copyWith(
         isSOSActive: true,
@@ -243,8 +243,8 @@ class SOSNotifier extends AsyncNotifier<SOSAppState> {
       try {
         await _coordinator.broadcastSOS(
           'EMERGENCY SOS: Repeated call for assistance!',
-          latitude: currentState!.latitude,
-          longitude: currentState.longitude,
+          currentState!.latitude,
+          currentState.longitude,
         );
         
         state = AsyncValue.data(currentState.copyWith(

@@ -77,7 +77,7 @@ class AppState {
       try {
         listener();
       } catch (e) {
-        debugPrint('Error in state listener: $e');
+        Logger.error('Error in state listener', 'Providers', e);
       }
     }
   }
@@ -390,7 +390,7 @@ class AppActions {
   }) async {
     try {
       final coordinator = ref.read(serviceCoordinatorProvider);
-      await coordinator.broadcastSOS(emergencyMessage, latitude: latitude, longitude: longitude);
+      await coordinator.broadcastSOS(emergencyMessage, latitude, longitude);
       Logger.info('🚨 SOS broadcast sent via ServiceCoordinator');
     } catch (e) {
       Logger.error('Failed to broadcast SOS: $e');
@@ -437,23 +437,23 @@ class AppActions {
   // SOS Actions
   static void activateSOS(WidgetRef ref) {
     AppState.setSosActive(true);
-    debugPrint('🚨 SOS Mode Activated');
+    Logger.info('🚨 SOS Mode Activated');
   }
 
   static void deactivateSOS(WidgetRef ref) {
     AppState.setSosActive(false);
-    debugPrint('✅ SOS Mode Deactivated');
+    Logger.info('✅ SOS Mode Deactivated');
   }
 
   // Rescuer Actions  
   static void activateRescuer(WidgetRef ref) {
     AppState.setRescuerActive(true);
-    debugPrint('🛡️ Rescuer Mode Activated');
+    Logger.info('🛡️ Rescuer Mode Activated');
   }
 
   static void deactivateRescuer(WidgetRef ref) {
     AppState.setRescuerActive(false);
-    debugPrint('✅ Rescuer Mode Deactivated');
+    Logger.info('✅ Rescuer Mode Deactivated');
   }
 
   // Device Discovery Actions

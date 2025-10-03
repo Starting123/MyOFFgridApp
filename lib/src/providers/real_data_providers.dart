@@ -267,8 +267,8 @@ class RealMessageActions {
     try {
       await _coordinator.broadcastSOS(
         message,
-        latitude: latitude,
-        longitude: longitude,
+        latitude,
+        longitude,
       );
       Logger.info('SOS broadcast sent successfully');
     } catch (e) {

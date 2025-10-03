@@ -121,7 +121,7 @@ class MessageSendingNotifier extends Notifier<MessageSendingState> {
     state = state.copyWith(isSending: true, error: null);
     
     try {
-      await _coordinator.broadcastSOS(message, latitude: latitude, longitude: longitude);
+      await _coordinator.broadcastSOS(message, latitude, longitude);
       state = state.copyWith(isSending: false);
     } catch (e) {
       state = state.copyWith(

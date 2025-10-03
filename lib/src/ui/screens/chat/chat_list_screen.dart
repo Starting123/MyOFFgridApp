@@ -78,6 +78,8 @@ UserRole _mapDeviceRoleToUserRole(DeviceRole role) {
       return UserRole.sosUser;
     case DeviceRole.rescuer:
       return UserRole.rescueUser;
+    case DeviceRole.relay:
+      return UserRole.relayUser;
     case DeviceRole.normal:
       return UserRole.relayUser;
   }

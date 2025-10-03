@@ -181,7 +181,7 @@ class MessageSender {
   }
   
   Future<void> broadcastSOS(String message, {double? latitude, double? longitude}) async {
-    await _coordinator.broadcastSOS(message, latitude: latitude, longitude: longitude);
+    await _coordinator.broadcastSOS(message, latitude, longitude);
   }
   
   Future<bool> connectToDevice(String deviceId) async {

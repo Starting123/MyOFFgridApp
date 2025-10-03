@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/chat_models.dart';
 import '../utils/logger.dart';
@@ -1029,7 +1028,7 @@ class ServiceCoordinator {
 
   /// Connect to specific device via best available service
   Future<bool> connectToDevice(String deviceId) async {
-    debugPrint('🔗 Connecting to device: $deviceId');
+    Logger.info('🔗 Connecting to device: $deviceId');
     
     try {
       // Find device first
@@ -1121,7 +1120,7 @@ class ServiceCoordinator {
       
       _retryTimer = Timer(backoffDuration, () async {
         if (retryCount >= maxRetries) {
-          debugPrint('🛑 Max retry attempts reached for this session');
+          Logger.warning('🛑 Max retry attempts reached for this session');
           retryCount = 0; // Reset for next failure
           return;
         }
@@ -1131,7 +1130,7 @@ class ServiceCoordinator {
         
         if (hasFailedServices || hasPendingMessages) {
           retryCount++;
-          debugPrint('🔄 Retry attempt $retryCount/$maxRetries (backoff: ${backoffDuration.inSeconds}s)');
+          Logger.info('🔄 Retry attempt $retryCount/$maxRetries (backoff: ${backoffDuration.inSeconds}s)');
           
           await _retryFailedMessages();
           await _retryFailedServices();
@@ -1141,7 +1140,7 @@ class ServiceCoordinator {
         } else {
           // Reset retry count if everything is working
           retryCount = 0;
-          debugPrint('✅ All services operational, retry mechanism idle');
+          Logger.info('✅ All services operational, retry mechanism idle');
         }
       });
     }
@@ -1161,7 +1160,7 @@ class ServiceCoordinator {
   Future<void> _retryFailedServices() async {
     for (final service in _servicePriority) {
       if (_serviceStatus[service] != true) {
-        debugPrint('🔄 Retrying failed service: $service');
+        Logger.info('🔄 Retrying failed service: $service');
         await _initializeWithRetry(service, _getServiceInitializer(service));
       }
     }

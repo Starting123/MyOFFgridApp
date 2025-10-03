@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import '../lib/src/utils/logger.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 
@@ -127,44 +128,44 @@ void main() {
 
 /// Helper function to run Firebase integration tests
 Future<void> runFirebaseTests() async {
-  print('🔥 Starting Firebase Integration Tests...');
+  Logger.info('🔥 Starting Firebase Integration Tests...');
   
   try {
     await Firebase.initializeApp();
-    print('✅ Firebase initialized successfully');
+    Logger.success('✅ Firebase initialized successfully');
     
     // Test Authentication
-    print('🔐 Testing Authentication...');
+    Logger.info('🔐 Testing Authentication...');
     final auth = FirebaseAuth.instance;
     final userCredential = await auth.signInAnonymously();
-    print('✅ Anonymous authentication successful: ${userCredential.user?.uid}');
+    Logger.success('✅ Anonymous authentication successful: ${userCredential.user?.uid}');
     
     // Test Firestore
-    print('📁 Testing Firestore...');
+    Logger.info('📁 Testing Firestore...');
     final firestore = FirebaseFirestore.instance;
     final testDoc = await firestore.collection('test').add({
       'message': 'Firebase integration test',
       'timestamp': FieldValue.serverTimestamp(),
     });
-    print('✅ Firestore write successful: ${testDoc.id}');
+    Logger.success('✅ Firestore write successful: ${testDoc.id}');
     
     // Test Storage
-    print('💾 Testing Storage...');
+    Logger.info('💾 Testing Storage...');
     final storage = FirebaseStorage.instance;
     final ref = storage.ref().child('test/integration_test.txt');
     await ref.putString('Firebase integration test content');
     final downloadURL = await ref.getDownloadURL();
-    print('✅ Storage upload successful: $downloadURL');
+    Logger.success('✅ Storage upload successful: $downloadURL');
     
     // Clean up
     await userCredential.user?.delete();
     await testDoc.delete();
     await ref.delete();
     
-    print('🎉 All Firebase integration tests passed!');
+    Logger.success('🎉 All Firebase integration tests passed!');
     
   } catch (e) {
-    print('❌ Firebase integration test failed: $e');
+    Logger.error('❌ Firebase integration test failed', 'FirebaseTest', e);
     rethrow;
   }
 }

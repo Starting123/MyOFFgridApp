@@ -32,11 +32,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   MessageStatus _convertMessageStatus(models.MessageStatus status) {
     switch (status) {
       case models.MessageStatus.sending:
+      case models.MessageStatus.pending:
         return MessageStatus.pending;
       case models.MessageStatus.sent:
         return MessageStatus.sent;
       case models.MessageStatus.delivered:
       case models.MessageStatus.read:
+        return MessageStatus.sent;
+      case models.MessageStatus.received:
         return MessageStatus.sent;
       case models.MessageStatus.synced:
         return MessageStatus.synced;
@@ -453,6 +456,26 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           ],
         );
         
+      case models.MessageType.ack:
+        return Row(
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Message acknowledged',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isMe
+                    ? theme.colorScheme.onPrimary.withOpacity(0.7)
+                    : theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        );
 
     }
   }

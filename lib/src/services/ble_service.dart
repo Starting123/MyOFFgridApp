@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../utils/logger.dart';
 
 /// BLE Service for small payload transfer and device discovery
 /// 
@@ -55,7 +55,7 @@ class BLEService {
       
       // Check if any permission was denied
       if (statuses.values.any((status) => status.isDenied)) {
-        debugPrint('Some permissions were denied');
+        Logger.warning('Some permissions were denied');
         return false;
       }
 
@@ -63,7 +63,7 @@ class BLEService {
       FlutterBluePlus.setLogLevel(LogLevel.info);
       return true;
     } catch (e) {
-      debugPrint('Error initializing BLE: $e');
+      Logger.error('Error initializing BLE', 'BLE', e);
       return false;
     }
   }
@@ -97,12 +97,12 @@ class BLEService {
               _deviceFoundController.add(bleDevice);
               _deviceController.add(List.from(_currentDevices));
               
-              debugPrint('${r.device.platformName} found! rssi: ${r.rssi}');
+              Logger.debug('${r.device.platformName} found! rssi: ${r.rssi}');
             }
           }
         },
         onError: (error) {
-          debugPrint('Error during scan: $error');
+          Logger.error('Error during scan', 'BLE', error);
           stopScanning();
         }
       );
@@ -111,7 +111,7 @@ class BLEService {
         timeout: const Duration(seconds: 4),
       );
     } catch (e) {
-      debugPrint('Error scanning: $e');
+      Logger.error('Error scanning', 'BLE', e);
       _isScanning = false;
       rethrow;
     } finally {
@@ -134,7 +134,7 @@ class BLEService {
     try {
       // Check if already connected
       if (device.isConnected) {
-        debugPrint('Device already connected');
+        Logger.info('Device already connected');
         return;
       }
 
@@ -143,7 +143,7 @@ class BLEService {
       
       stateSubscription = device.connectionState.listen(
         (BluetoothConnectionState state) {
-          debugPrint('Connection state changed: $state');
+          Logger.debug('Connection state changed: $state');
           if (state == BluetoothConnectionState.connected) {
             if (!connectionCompleter.isCompleted) {
               connectionCompleter.complete();
@@ -163,7 +163,7 @@ class BLEService {
         try {
           // BLE connection using FlutterBluePlus free tier
           // Free license applies for: individuals, <50 employees, nonprofits, educational use
-          debugPrint('🔵 BLE connection attempt ${i + 1}/3 to ${device.platformName}');
+          Logger.info('🔵 BLE connection attempt ${i + 1}/3 to ${device.platformName}');
           
           // Connect to the device using FlutterBluePlus free tier
           // Free license for: individuals, <50 employees, nonprofits, educational use
@@ -178,23 +178,23 @@ class BLEService {
           break; // Successfully connected, exit retry loop
           
         } catch (e) {
-          debugPrint('Connection attempt ${i + 1} failed: $e');
+          Logger.warning('Connection attempt ${i + 1} failed: $e');
           try {
             await device.disconnect();
           } catch (disconnectError) {
-            debugPrint('Error during disconnect cleanup: $disconnectError');
+            Logger.error('Error during disconnect cleanup', 'BLE', disconnectError);
           }
           
           if (i == 2) {
             rethrow; // Last attempt failed
           }
           
-          debugPrint('Retrying BLE connection in 2 seconds...');
+          Logger.debug('Retrying BLE connection in 2 seconds...');
           await Future.delayed(const Duration(seconds: 2));
         }
       }
 
-      debugPrint('Connected to ${device.platformName}');
+      Logger.success('Connected to ${device.platformName}');
         
       // Discover services
       List<BluetoothService> services = await device.discoverServices();
@@ -203,7 +203,7 @@ class BLEService {
           for (var characteristic in service.characteristics) {
             if (characteristic.uuid.toString() == characteristicUuid) {
               // Found our characteristic
-              debugPrint('Found target characteristic');
+              Logger.debug('Found target characteristic');
               return;
             }
           }
@@ -213,7 +213,7 @@ class BLEService {
       // If we get here, we didn't find our service/characteristic
       throw Exception('Required BLE service/characteristic not found');
     } catch (e) {
-      debugPrint('Error connecting to device: $e');
+      Logger.error('Error connecting to device', 'BLE', e);
       await disconnect(device); // Clean up on error
       rethrow;
     } finally {
@@ -224,9 +224,9 @@ class BLEService {
   Future<void> disconnect(BluetoothDevice device) async {
     try {
       await device.disconnect();
-      debugPrint('Disconnected from ${device.platformName}');
+      Logger.info('Disconnected from ${device.platformName}');
     } catch (e) {
-      debugPrint('Error disconnecting: $e');
+      Logger.error('Error disconnecting', 'BLE', e);
       rethrow;
     }
   }
@@ -239,12 +239,7 @@ class BLEService {
   /// Get currently discovered devices
   List<BLEDevice> get discoveredDevices => List.unmodifiable(_currentDevices);
   
-  /// Clean up old devices (remove devices not seen for 2 minutes)
-  void _cleanupOldDevices() {
-    final cutoff = DateTime.now().subtract(Duration(minutes: 2));
-    _currentDevices.removeWhere((device) => device.lastSeen.isBefore(cutoff));
-    _deviceController.add(List.from(_currentDevices));
-  }
+
   
   /// Dispose resources
   void dispose() {

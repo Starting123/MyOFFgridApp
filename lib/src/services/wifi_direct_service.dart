@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
+import '../utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -16,7 +16,6 @@ class WiFiDirectService {
   
   bool _isInitialized = false;
   bool _isDiscovering = false;
-  bool _isGroupOwner = false;
   
   // Stream controllers
   final StreamController<List<WiFiDirectDevice>> _peersController = 
@@ -52,7 +51,7 @@ class WiFiDirectService {
     if (_isInitialized) return true;
     
     try {
-      debugPrint('🔄 Initializing WiFi Direct service...');
+      Logger.info('🔄 Initializing WiFi Direct service...');
       
       // Request necessary permissions
       await _requestPermissions();
@@ -65,14 +64,14 @@ class WiFiDirectService {
       
       if (initialized) {
         _isInitialized = true;
-        debugPrint('✅ WiFi Direct service initialized successfully');
+        Logger.success('✅ WiFi Direct service initialized successfully');
         return true;
       } else {
-        debugPrint('❌ WiFi Direct initialization failed');
+        Logger.error('❌ WiFi Direct initialization failed');
         return false;
       }
     } catch (e) {
-      debugPrint('❌ WiFi Direct initialization error: $e');
+      Logger.error('❌ WiFi Direct initialization error', 'WiFiDirect', e);
       return false;
     }
   }
@@ -90,7 +89,7 @@ class WiFiDirectService {
     
     for (var entry in statuses.entries) {
       if (!entry.value.isGranted) {
-        debugPrint('⚠️ ${entry.key} permission not granted: ${entry.value}');
+        Logger.warning('⚠️ ${entry.key} permission not granted: ${entry.value}');
       }
     }
   }
@@ -98,12 +97,12 @@ class WiFiDirectService {
   /// Start peer discovery
   Future<bool> startDiscovery() async {
     if (!_isInitialized) {
-      debugPrint('❌ WiFi Direct not initialized');
+      Logger.error('❌ WiFi Direct not initialized');
       return false;
     }
     
     if (_isDiscovering) {
-      debugPrint('ℹ️ WiFi Direct discovery already active');
+      Logger.info('ℹ️ WiFi Direct discovery already active');
       return true;
     }
 
@@ -112,14 +111,14 @@ class WiFiDirectService {
       _isDiscovering = started;
       
       if (started) {
-        debugPrint('🔍 WiFi Direct peer discovery started');
+        Logger.success('🔍 WiFi Direct peer discovery started');
       } else {
-        debugPrint('❌ Failed to start WiFi Direct discovery');
+        Logger.error('❌ Failed to start WiFi Direct discovery');
       }
       
       return started;
     } catch (e) {
-      debugPrint('❌ Error starting WiFi Direct discovery: $e');
+      Logger.error('❌ Error starting WiFi Direct discovery', 'WiFiDirect', e);
       return false;
     }
   }
@@ -131,9 +130,9 @@ class WiFiDirectService {
     try {
       await _channel.invokeMethod('stopDiscovery');
       _isDiscovering = false;
-      debugPrint('⏹️ WiFi Direct discovery stopped');
+      Logger.info('⏹️ WiFi Direct discovery stopped');
     } catch (e) {
-      debugPrint('❌ Error stopping WiFi Direct discovery: $e');
+      Logger.error('❌ Error stopping WiFi Direct discovery', 'WiFiDirect', e);
     }
   }
 
@@ -147,14 +146,14 @@ class WiFiDirectService {
       }) ?? false;
       
       if (connected) {
-        debugPrint('🔗 Initiating connection to ${device.deviceName}');
+        Logger.info('🔗 Initiating connection to ${device.deviceName}');
       } else {
-        debugPrint('❌ Failed to initiate connection to ${device.deviceName}');
+        Logger.error('❌ Failed to initiate connection to ${device.deviceName}');
       }
       
       return connected;
     } catch (e) {
-      debugPrint('❌ Error connecting to peer: $e');
+      Logger.error('❌ Error connecting to peer', 'WiFiDirect', e);
       return false;
     }
   }
@@ -165,9 +164,9 @@ class WiFiDirectService {
       await _channel.invokeMethod('disconnect');
       _connectedPeer = null;
       _connectionInfo = null;
-      debugPrint('🔌 Disconnected from WiFi Direct peer');
+      Logger.info('🔌 Disconnected from WiFi Direct peer');
     } catch (e) {
-      debugPrint('❌ Error disconnecting: $e');
+      Logger.error('❌ Error disconnecting', 'WiFiDirect', e);
     }
   }
 
@@ -180,7 +179,7 @@ class WiFiDirectService {
   /// Send raw data to connected peer
   Future<bool> sendData(Uint8List data) async {
     if (!isConnected || _connectionInfo == null) {
-      debugPrint('❌ No active WiFi Direct connection');
+      Logger.error('❌ No active WiFi Direct connection');
       return false;
     }
     
@@ -191,14 +190,14 @@ class WiFiDirectService {
       }) ?? false;
       
       if (sent) {
-        debugPrint('📤 Data sent via WiFi Direct (${data.length} bytes)');
+        Logger.success('📤 Data sent via WiFi Direct (${data.length} bytes)');
       } else {
-        debugPrint('❌ Failed to send data via WiFi Direct');
+        Logger.error('❌ Failed to send data via WiFi Direct');
       }
       
       return sent;
     } catch (e) {
-      debugPrint('❌ Error sending data: $e');
+      Logger.error('❌ Error sending data', 'WiFiDirect', e);
       return false;
     }
   }
@@ -217,11 +216,11 @@ class WiFiDirectService {
           _handleDataReceived(call.arguments);
           break;
         default:
-          debugPrint('⚠️ Unknown method call: ${call.method}');
+          Logger.warning('⚠️ Unknown method call: ${call.method}');
           break;
       }
     } catch (e) {
-      debugPrint('❌ Error handling method call: $e');
+      Logger.error('❌ Error handling method call', 'WiFiDirect', e);
     }
   }
 
@@ -237,9 +236,9 @@ class WiFiDirectService {
       }
       
       _peersController.add(List.from(_peers));
-      debugPrint('📡 WiFi Direct peers updated: ${_peers.length} devices');
+      Logger.info('📡 WiFi Direct peers updated: ${_peers.length} devices');
     } catch (e) {
-      debugPrint('❌ Error handling peers changed: $e');
+      Logger.error('❌ Error handling peers changed', 'WiFiDirect', e);
     }
   }
 
@@ -247,7 +246,6 @@ class WiFiDirectService {
     try {
       final connectionData = arguments as Map<String, dynamic>;
       _connectionInfo = WiFiDirectConnectionInfo.fromMap(connectionData);
-      _isGroupOwner = _connectionInfo!.isGroupOwner;
       
       if (_connectionInfo!.isConnected) {
         // Find connected peer
@@ -259,15 +257,15 @@ class WiFiDirectService {
             status: 'CONNECTED',
           ),
         );
-        debugPrint('✅ WiFi Direct connected to ${_connectedPeer?.deviceName}');
+        Logger.success('✅ WiFi Direct connected to ${_connectedPeer?.deviceName}');
       } else {
         _connectedPeer = null;
-        debugPrint('🔌 WiFi Direct disconnected');
+        Logger.info('🔌 WiFi Direct disconnected');
       }
       
       _connectionController.add(_connectionInfo!);
     } catch (e) {
-      debugPrint('❌ Error handling connection changed: $e');
+      Logger.error('❌ Error handling connection changed', 'WiFiDirect', e);
     }
   }
 
@@ -280,9 +278,9 @@ class WiFiDirectService {
       };
       
       _messageController.add(messageData);
-      debugPrint('📨 Data received via WiFi Direct');
+      Logger.info('📨 Data received via WiFi Direct');
     } catch (e) {
-      debugPrint('❌ Error handling received data: $e');
+      Logger.error('❌ Error handling received data', 'WiFiDirect', e);
     }
   }
 
