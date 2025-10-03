@@ -1212,25 +1212,22 @@ class ServiceCoordinator {
           try {
             // Attempt to upload via Firebase service
             if (_firebaseService.isInitialized) {
-              // Convert message to JSON for upload  
-              final messageJson = {
-                'id': message.id,
-                'senderId': message.senderId,
-                'senderName': message.senderName,
-                'receiverId': message.receiverId,
-                'content': message.content,
-                'type': message.type.toString().split('.').last,
-                'timestamp': message.timestamp.toIso8601String(),
-                'isEmergency': message.isEmergency,
-                'latitude': message.latitude,
-                'longitude': message.longitude,
-                'ttl': message.ttl,
-                'hopCount': message.hopCount,
-              };
+              if (message.isEmergency && message.type == MessageType.sos) {
+                // Upload SOS messages to public collection
+                uploadSuccess = await _firebaseService.uploadSOSAlert(message);
+              } else {
+                // Upload regular messages to private chats
+                uploadSuccess = await _firebaseService.uploadMessage(message);
+              }
               
-              // For now, mark as successful since we don't have specific upload method
-              uploadSuccess = true;
-              Logger.info('📤 Message prepared for cloud upload: ${message.id} (${messageJson.length} fields)');
+              if (uploadSuccess) {
+                Logger.info('📤 Message uploaded to cloud: ${message.id}');
+              } else {
+                Logger.warning('⚠️ Failed to upload message: ${message.id}');
+              }
+            } else {
+              Logger.warning('Firebase not initialized, skipping upload');
+              uploadSuccess = false;
             }
           } catch (e) {
             Logger.error('Cloud upload error: $e');

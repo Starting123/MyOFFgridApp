@@ -2,38 +2,109 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read/write their own data
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    function isParticipant(participants) {
+      return request.auth != null && request.auth.uid in participants;
+    }
+    
+    function isRescuer() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['rescuer', 'coordinator'];
+    }
+    
+    // USER DOCUMENTS - Only owner can read/write
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Allow authenticated users to read/write conversations they're part of
-    match /conversations/{conversationId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid in resource.data.participants;
+    // CHAT COLLECTIONS - Only participants can access
+    match /chats/{chatId} {
+      // Chat metadata - only participants can read, anyone can create/update via messages
+      allow read: if isAuthenticated() && 
+                     isParticipant(resource.data.participants);
+      allow write: if isAuthenticated() && 
+                      isParticipant(request.resource.data.participants);
+      
+      // MESSAGES IN CHATS - Only participants can read/write
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && 
+                       isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+        allow create: if isAuthenticated() && 
+                         (request.auth.uid == request.resource.data.senderId) &&
+                         (request.resource.data.senderId in get(/databases/$(database)/documents/chats/$(chatId)).data.participants ||
+                          request.resource.data.receiverId in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+        allow update: if isAuthenticated() && 
+                         request.auth.uid == resource.data.senderId;
+        allow delete: if isAuthenticated() && 
+                         request.auth.uid == resource.data.senderId;
+      }
     }
     
-    // Allow authenticated users to read/write messages in conversations they're part of
-    match /conversations/{conversationId}/messages/{messageId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
-    }
-    
-    // Allow authenticated users to read/write SOS alerts
+    // SOS ALERTS - Public read, restricted write
     match /sos_alerts/{alertId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.responderId);
+      // Anyone authenticated can read SOS alerts (for emergency response)
+      allow read: if isAuthenticated();
+      
+      // Only original sender can create SOS alert
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.userId;
+      
+      // Only sender or rescuer can update status
+      allow update: if isAuthenticated() && 
+                       (request.auth.uid == resource.data.userId || 
+                        isRescuer() ||
+                        request.auth.uid == resource.data.responderId);
+      
+      // Only sender can delete their own SOS
+      allow delete: if isAuthenticated() && 
+                       request.auth.uid == resource.data.userId;
     }
     
-    // Allow authenticated users to read/write device discovery data
-    match /device_discovery/{deviceId} {
-      allow read, write: if request.auth != null;
+    // DEVICE INFORMATION - Only owner can write, rescuers can read for coordination
+    match /devices/{deviceId} {
+      // Rescuers can read all device info for emergency coordination
+      allow read: if isAuthenticated() && 
+                     (isOwner(resource.data.userId) || isRescuer());
+      
+      // Only device owner can write device information
+      allow write: if isAuthenticated() && 
+                      isOwner(request.resource.data.userId);
     }
     
-    // Allow authenticated users to read/write network status
+    // NETWORK STATUS - Read for all, write for device owners and rescuers
     match /network_status/{statusId} {
-      allow read, write: if request.auth != null;
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+                      (isOwner(request.resource.data.userId) || isRescuer());
+    }
+    
+    // EMERGENCY CONTACTS - Only owner can access
+    match /emergency_contacts/{contactId} {
+      allow read, write: if isAuthenticated() && 
+                            isOwner(resource.data.userId);
+    }
+    
+    // SYNC LOGS - Only owner can access their sync logs
+    match /sync_logs/{logId} {
+      allow read, write: if isAuthenticated() && 
+                            isOwner(resource.data.userId);
+    }
+    
+    // PUBLIC EMERGENCY BROADCASTS - All can read, only rescuers/coordinators can write
+    match /emergency_broadcasts/{broadcastId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isRescuer();
     }
   }
 }
