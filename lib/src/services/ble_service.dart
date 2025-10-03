@@ -27,6 +27,21 @@ class BLEService {
   bool _isScanning = false;
   StreamSubscription? _scanSubscription;
   final Set<String> _discoveredDevices = {};
+  
+  // Stream controllers for device discovery
+  final StreamController<List<BLEDevice>> _deviceController = 
+      StreamController<List<BLEDevice>>.broadcast();
+  final StreamController<BLEDevice> _deviceFoundController = 
+      StreamController<BLEDevice>.broadcast();
+  final StreamController<String> _deviceLostController = 
+      StreamController<String>.broadcast();
+  
+  // Public streams
+  Stream<List<BLEDevice>> get deviceStream => _deviceController.stream;
+  Stream<BLEDevice> get onDeviceFound => _deviceFoundController.stream;
+  Stream<String> get onDeviceLost => _deviceLostController.stream;
+  
+  final List<BLEDevice> _currentDevices = [];
 
   Future<bool> initialize() async {
     try {
@@ -68,6 +83,20 @@ class BLEService {
           for (ScanResult r in results) {
             if (!_discoveredDevices.contains(r.device.remoteId.str)) {
               _discoveredDevices.add(r.device.remoteId.str);
+              
+              final bleDevice = BLEDevice(
+                id: r.device.remoteId.str,
+                name: r.device.platformName.isNotEmpty ? r.device.platformName : 'Unknown BLE Device',
+                device: r.device,
+                rssi: r.rssi,
+                lastSeen: DateTime.now(),
+                isConnected: r.device.isConnected,
+              );
+              
+              _currentDevices.add(bleDevice);
+              _deviceFoundController.add(bleDevice);
+              _deviceController.add(List.from(_currentDevices));
+              
               debugPrint('${r.device.platformName} found! rssi: ${r.rssi}');
             }
           }
@@ -205,5 +234,60 @@ class BLEService {
   Stream<List<BluetoothDevice>> get connectedDevices {
     return Stream.periodic(Duration(seconds: 1))
         .asyncMap((_) => FlutterBluePlus.connectedDevices);
+  }
+  
+  /// Get currently discovered devices
+  List<BLEDevice> get discoveredDevices => List.unmodifiable(_currentDevices);
+  
+  /// Clean up old devices (remove devices not seen for 2 minutes)
+  void _cleanupOldDevices() {
+    final cutoff = DateTime.now().subtract(Duration(minutes: 2));
+    _currentDevices.removeWhere((device) => device.lastSeen.isBefore(cutoff));
+    _deviceController.add(List.from(_currentDevices));
+  }
+  
+  /// Dispose resources
+  void dispose() {
+    _scanSubscription?.cancel();
+    _deviceController.close();
+    _deviceFoundController.close();
+    _deviceLostController.close();
+  }
+}
+
+/// BLE Device model
+class BLEDevice {
+  final String id;
+  final String name;
+  final BluetoothDevice device;
+  final int rssi;
+  final DateTime lastSeen;
+  final bool isConnected;
+  
+  const BLEDevice({
+    required this.id,
+    required this.name,
+    required this.device,
+    required this.rssi,
+    required this.lastSeen,
+    required this.isConnected,
+  });
+  
+  BLEDevice copyWith({
+    String? id,
+    String? name,
+    BluetoothDevice? device,
+    int? rssi,
+    DateTime? lastSeen,
+    bool? isConnected,
+  }) {
+    return BLEDevice(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      device: device ?? this.device,
+      rssi: rssi ?? this.rssi,
+      lastSeen: lastSeen ?? this.lastSeen,
+      isConnected: isConnected ?? this.isConnected,
+    );
   }
 }

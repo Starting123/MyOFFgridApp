@@ -37,10 +37,18 @@ class MeshNetworkService {
   Timer? _cleanupTimer;
   Timer? _heartbeatTimer;
   String? _myDeviceId;
+  
+  // Connection handler for sending messages through physical protocols
+  Future<bool> Function(String deviceId, MeshMessage message, String connectionType)? _connectionHandler;
 
   // Public streams
   Stream<List<MeshNode>> get topologyStream => _topologyController.stream;
   Stream<MeshMessage> get messageStream => _messageController.stream;
+  
+  /// Set connection handler for sending messages through physical protocols
+  void setConnectionHandler(Future<bool> Function(String deviceId, MeshMessage message, String connectionType) handler) {
+    _connectionHandler = handler;
+  }
   
   /// Initialize mesh network service
   Future<bool> initialize(String deviceId) async {
@@ -230,19 +238,29 @@ class MeshNetworkService {
   /// Send through specific connection type
   Future<bool> _sendThroughConnection(String connectionType, String deviceId, String data) async {
     if (_connectionHandler != null) {
-      return await _connectionHandler!(connectionType, deviceId, data);
+      // Convert the data string back to MeshMessage for the handler
+      try {
+        final messageData = jsonDecode(data);
+        final chatMessage = ChatMessage.fromJson(messageData['chatMessage']);
+        final meshMessage = MeshMessage(
+          id: messageData['id'],
+          sourceDeviceId: messageData['sourceDeviceId'],
+          targetDeviceId: messageData['targetDeviceId'],
+          chatMessage: chatMessage,
+          ttl: messageData['ttl'],
+          timestamp: DateTime.parse(messageData['timestamp']),
+          routePath: List<String>.from(messageData['routePath']),
+        );
+        return await _connectionHandler!(deviceId, meshMessage, connectionType);
+      } catch (e) {
+        Logger.error('❌ Failed to parse message for connection handler: $e');
+        return false;
+      }
     }
     
     Logger.debug('📡 No connection handler set, cannot send via $connectionType to $deviceId');
     return false;
   }
-
-  /// Set the connection handler (called by ServiceCoordinator)
-  void setConnectionHandler(Future<bool> Function(String connectionType, String deviceId, String data) handler) {
-    _connectionHandler = handler;
-  }
-
-  Future<bool> Function(String connectionType, String deviceId, String data)? _connectionHandler;
 
   /// Deliver message to local application
   void _deliverMessage(MeshMessage message) {

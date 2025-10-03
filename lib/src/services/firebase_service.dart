@@ -12,12 +12,12 @@ class FirebaseService {
 
   /// Firebase configuration for web
   static const FirebaseOptions webOptions = FirebaseOptions(
-    apiKey: "AIzaSyDemoKey123456789",
+    apiKey: "AIzaSyDDYOTW5cNJjUd9LYuX9iUogtF7kEYzmjM",
     authDomain: "off-grid-sos-app.firebaseapp.com",
     projectId: "off-grid-sos-app",
-    storageBucket: "off-grid-sos-app.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef123456789",
+    storageBucket: "off-grid-sos-app.firebasestorage.app",
+    messagingSenderId: "798849744293",
+    appId: "1:798849744293:web:262d0a88bea3deddd6fc4c",
   );
 
   /// Initialize Firebase

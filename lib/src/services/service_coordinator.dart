@@ -7,6 +7,7 @@ import 'nearby_service_fixed.dart' as NearbyServiceFixed;
 // Use the fixed version for better SOS-Rescuer communication
 import 'p2p_service.dart';
 import 'ble_service.dart';
+import 'wifi_direct_service.dart';
 import 'sos_broadcast_service.dart';
 import 'auth_service.dart';
 import 'local_db_service.dart';
@@ -24,6 +25,7 @@ class ServiceCoordinator {
   final NearbyServiceFixed.NearbyService _nearbyService = NearbyServiceFixed.NearbyService.instance;
   final P2PService _p2pService = P2PService.instance;
   final BLEService _bleService = BLEService.instance;
+  final WiFiDirectService _wifiDirectService = WiFiDirectService.instance;
   final SOSBroadcastService _sosService = SOSBroadcastService.instance;
   final AuthService _authService = AuthService.instance;
   final LocalDatabaseService _dbService = LocalDatabaseService();
@@ -36,9 +38,10 @@ class ServiceCoordinator {
     'nearby': false,
     'p2p': false,
     'ble': false,
+    'wifiDirect': false,
     'cloud': false,
   };
-  final List<String> _servicePriority = ['nearby', 'p2p', 'ble']; // Priority order
+  final List<String> _servicePriority = ['wifiDirect', 'nearby', 'p2p', 'ble']; // Priority order
   
   // Stream controllers for unified device discovery
   final StreamController<List<NearbyDevice>> _deviceController = 
@@ -73,6 +76,7 @@ class ServiceCoordinator {
       _meshService.setConnectionHandler(_sendThroughConnectionType);
       
       // Initialize communication services with fallbacks
+      await _initializeWithRetry('wifiDirect', () => _wifiDirectService.initialize());
       await _initializeWithRetry('nearby', () => _nearbyService.initialize());
       await _initializeWithRetry('p2p', () => _p2pService.initialize()); 
       await _initializeWithRetry('ble', () => _bleService.initialize());
@@ -153,8 +157,15 @@ class ServiceCoordinator {
     }
     
     if (_serviceStatus['ble'] == true) {
-      // BLE service would need similar integration
-      debugPrint('🔵 BLE discovery would start here');
+      discoveryTasks.add(_bleService.startScanning());
+      _bleService.onDeviceFound.listen(_onBLEDeviceFound);
+      _bleService.onDeviceLost.listen(_onDeviceLost);
+    }
+    
+    if (_serviceStatus['wifiDirect'] == true) {
+      discoveryTasks.add(_wifiDirectService.startDiscovery());
+      _wifiDirectService.onPeerFound.listen(_onWiFiDirectDeviceFound);
+      _wifiDirectService.onPeerLost.listen(_onDeviceLost);
     }
 
     await Future.wait(discoveryTasks);
@@ -202,6 +213,58 @@ class ServiceCoordinator {
       signalStrength: -50,
       lastSeen: DateTime.now(),
       connectionType: 'p2p',
+    );
+    
+    _discoveredDevices.add(device);
+    
+    // Add to mesh network
+    _meshService.addNeighbor(
+      device.id,
+      device.name,
+      connectionType: device.connectionType,
+      signalStrength: device.signalStrength,
+    );
+    
+    _refreshDeviceList();
+  }
+
+  void _onBLEDeviceFound(BLEDevice bleDevice) {
+    final device = NearbyDevice(
+      id: bleDevice.id,
+      name: bleDevice.name,
+      role: _parseDeviceRole(bleDevice.name),
+      isSOSActive: bleDevice.name.toLowerCase().contains('sos'),
+      isRescuerActive: bleDevice.name.toLowerCase().contains('rescuer'),
+      isConnected: bleDevice.isConnected,
+      signalStrength: bleDevice.rssi,
+      lastSeen: bleDevice.lastSeen,
+      connectionType: 'ble',
+    );
+    
+    _discoveredDevices.add(device);
+    
+    // Add to mesh network
+    _meshService.addNeighbor(
+      device.id,
+      device.name,
+      connectionType: device.connectionType,
+      signalStrength: device.signalStrength,
+    );
+    
+    _refreshDeviceList();
+  }
+
+  void _onWiFiDirectDeviceFound(WiFiDirectDevice wifiDevice) {
+    final device = NearbyDevice(
+      id: wifiDevice.deviceAddress,
+      name: wifiDevice.deviceName,
+      role: _parseDeviceRole(wifiDevice.deviceName),
+      isSOSActive: wifiDevice.deviceName.toLowerCase().contains('sos'),
+      isRescuerActive: wifiDevice.deviceName.toLowerCase().contains('rescuer'),
+      isConnected: wifiDevice.status == 'CONNECTED',
+      signalStrength: -30, // WiFi Direct typically has good signal
+      lastSeen: DateTime.now(),
+      connectionType: 'wifiDirect',
     );
     
     _discoveredDevices.add(device);

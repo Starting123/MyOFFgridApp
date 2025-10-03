@@ -1,10 +1,48 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    // User profile images
+    match /users/{userId}/profile/{fileName} {
+      allow read: if true; // Public read access for profile images
+      allow write: if request.auth != null && 
+        request.auth.uid == userId &&
+        resource.size < 5 * 1024 * 1024 && // 5MB limit
+        request.resource.contentType.matches('image/.*');
+    }
+    
+    // SOS emergency media (images, audio, video)
+    match /sos/{alertId}/{fileName} {
+      allow read: if request.auth != null; // Any authenticated user can view SOS media
+      allow write: if request.auth != null &&
+        resource.size < 10 * 1024 * 1024 && // 10MB limit for emergency media
+        (request.resource.contentType.matches('image/.*') ||
+         request.resource.contentType.matches('audio/.*') ||
+         request.resource.contentType.matches('video/.*'));
+    }
+    
+    // Chat message attachments
+    match /messages/{conversationId}/{messageId}/{fileName} {
+      allow read: if request.auth != null &&
+        // User must be participant in the conversation
+        exists(/databases/(default)/documents/conversations/$(conversationId)) &&
+        request.auth.uid in get(/databases/(default)/documents/conversations/$(conversationId)).data.participants;
+      allow write: if request.auth != null &&
+        // User must be participant in the conversation
+        exists(/databases/(default)/documents/conversations/$(conversationId)) &&
+        request.auth.uid in get(/databases/(default)/documents/conversations/$(conversationId)).data.participants &&
+        resource.size < 25 * 1024 * 1024; // 25MB limit for message attachments
+    }
+    
+    // Device logs and diagnostic files (restricted to device owner)
+    match /devices/{deviceId}/logs/{fileName} {
+      allow read, write: if request.auth != null &&
+        exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        // Only device owner can access logs
+        get(/databases/(default)/documents/users/$(request.auth.uid)).data.deviceId == deviceId;
+    }
+    
+    // Deny all other access
     match /{allPaths=**} {
       allow read, write: if false;
     }
