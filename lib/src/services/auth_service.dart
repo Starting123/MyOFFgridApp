@@ -174,32 +174,173 @@ class AuthService {
     }
   }
 
-  /// Update user role specifically (offline-first)
-  Future<bool> updateRole(String newRole) async {
-    if (_currentUser == null) return false;
+  /// Enhanced role change API with comprehensive updates
+  Future<bool> changeRole(String newRole, {bool forceCloudSync = true}) async {
+    if (_currentUser == null) {
+      Logger.error('No current user to update role for', 'auth');
+      return false;
+    }
+
+    final oldRole = _currentUser!.role;
+    Logger.info('Starting role change from $oldRole to $newRole', 'auth');
 
     try {
-      // Use the existing updateProfile method to update role
+      // Step 1: Update using existing updateProfile method
       final success = await updateProfile(role: newRole);
-      
-      if (success) {
-        Logger.info('User role updated to: $newRole', 'auth');
-        
-        // Notify ServiceCoordinator about role change
-        try {
-          await ServiceCoordinator.instance.updateDeviceRole(newRole);
-        } catch (e) {
-          Logger.warning('Failed to update ServiceCoordinator role: $e', 'auth');
-          // Don't fail the role update if ServiceCoordinator fails
-        }
-        
-        return true;
+      if (!success) {
+        throw Exception('Failed to update profile with new role');
       }
       
-      return false;
+      Logger.info('✅ Local user profile updated with new role', 'auth');
+
+      // Step 2: Update ServiceCoordinator and broadcast role change
+      await ServiceCoordinator.instance.updateDeviceRole(newRole);
+      Logger.info('✅ ServiceCoordinator updated with new role', 'auth');
+
+      // Step 3: Update Firebase cloud document if online and requested
+      if (forceCloudSync) {
+        await _updateCloudUserDocument(_currentUser!, oldRole);
+      }
+
+      // Step 4: Update local database if available
+      await _updateLocalDatabase(_currentUser!);
+
+      Logger.success('🎉 Role changed successfully from $oldRole to $newRole', 'auth');
+      return true;
+
     } catch (e) {
-      Logger.error('Error updating user role: $e', 'auth');
+      Logger.error('❌ Error changing user role: $e', 'auth');
+      
+      // Rollback on failure
+      await _rollbackRoleChange(oldRole);
       return false;
+    }
+  }
+
+  /// Legacy method for backward compatibility
+  Future<bool> updateRole(String newRole) async {
+    return await changeRole(newRole, forceCloudSync: false);
+  }
+
+  /// Update Firebase cloud user document
+  Future<void> _updateCloudUserDocument(UserModel user, String oldRole) async {
+    try {
+      // Check if Firebase is available
+      if (!FirebaseService.instance.isInitialized) {
+        Logger.warning('🔥 Firebase not initialized - skipping cloud update', 'auth');
+        return;
+      }
+
+      // Check connectivity
+      final connectivity = Connectivity();
+      final connectivityResult = await connectivity.checkConnectivity();
+      if (connectivityResult == ConnectivityResult.none) {
+        Logger.warning('📡 Device offline - cloud update will sync later', 'auth');
+        return;
+      }
+
+      final firestore = FirebaseFirestore.instance;
+      final firebaseAuth = FirebaseAuth.instance;
+      
+      // Get or create Firebase user
+      User? firebaseUser = firebaseAuth.currentUser;
+      if (firebaseUser == null) {
+        Logger.info('Creating anonymous Firebase session for cloud sync', 'auth');
+        final credential = await firebaseAuth.signInAnonymously();
+        firebaseUser = credential.user;
+      }
+
+      if (firebaseUser != null) {
+        final userDoc = firestore.collection('users').doc(firebaseUser.uid);
+        
+        // Update user document with role change history
+        await userDoc.set({
+          'id': user.id,
+          'name': user.name,
+          'email': user.email,
+          'phone': user.phone,
+          'profileImageUrl': user.profileImageUrl,
+          'role': user.role,
+          'lastSeen': user.lastSeen?.toIso8601String(),
+          'createdAt': user.createdAt?.toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+          'isOnline': true,
+          'isSyncedToCloud': true,
+          'roleChangeHistory': FieldValue.arrayUnion([{
+            'oldRole': oldRole,
+            'newRole': user.role,
+            'changedAt': DateTime.now().toIso8601String(),
+            'deviceInfo': {
+              'platform': 'flutter',
+              'changeReason': 'user_initiated',
+            }
+          }]),
+          'deviceInfo': {
+            'platform': 'flutter',
+            'lastSyncTime': DateTime.now().toIso8601String(),
+            'lastRoleChange': DateTime.now().toIso8601String(),
+          }
+        }, SetOptions(merge: true));
+
+        // Mark local user as synced
+        final syncedUser = UserModel(
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          profileImageUrl: user.profileImageUrl,
+          role: user.role,
+          lastSeen: user.lastSeen,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          isOnline: user.isOnline,
+          isSyncedToCloud: true,
+        );
+        
+        await _saveUserLocally(syncedUser);
+        _currentUser = syncedUser;
+        _userStreamController.add(_currentUser);
+
+        Logger.success('📤 Cloud user document updated successfully!', 'auth');
+      }
+    } catch (e) {
+      Logger.error('❌ Failed to update cloud user document: $e (continuing anyway)', 'auth');
+      // Don't throw - cloud sync failure shouldn't block role change
+    }
+  }
+
+  /// Update local SQLite database
+  Future<void> _updateLocalDatabase(UserModel user) async {
+    try {
+      // This would integrate with your local database service
+      // For now, we log the intent
+      Logger.info('📊 Local database would be updated with new role: ${user.role}', 'auth');
+      
+      // TODO: Integrate with DatabaseService when available
+      // await DatabaseService.instance.updateUserRole(user.id, user.role);
+      
+    } catch (e) {
+      Logger.warning('⚠️ Failed to update local database: $e (continuing anyway)', 'auth');
+      // Don't throw - database update failure shouldn't block role change
+    }
+  }
+
+  /// Rollback role change on failure
+  Future<void> _rollbackRoleChange(String originalRole) async {
+    try {
+      Logger.warning('🔄 Rolling back role change to: $originalRole', 'auth');
+      
+      if (_currentUser != null) {
+        // Use updateProfile to rollback
+        await updateProfile(role: originalRole);
+        
+        // Rollback ServiceCoordinator
+        await ServiceCoordinator.instance.updateDeviceRole(originalRole);
+        
+        Logger.info('✅ Role change rolled back successfully', 'auth');
+      }
+    } catch (e) {
+      Logger.error('❌ Failed to rollback role change: $e', 'auth');
     }
   }
 

@@ -48,6 +48,14 @@ class Logger {
     );
   }
   
+  static void critical(String message, [String? tag]) {
+    developer.log(
+      message,
+      name: tag ?? _tag,
+      level: 1200, // Critical level (highest)
+    );
+  }
+  
   // Convenience methods for different components
   static void encryption(String message) => debug(message, 'Encryption');
   static void sos(String message) => debug(message, 'SOS');

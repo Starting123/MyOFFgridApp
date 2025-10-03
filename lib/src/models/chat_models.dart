@@ -5,14 +5,17 @@ enum MessageType {
   location,
   sos,
   file,
+  ack,     // Acknowledgment messages
 }
 
 enum MessageStatus {
   sending,     // กำลังส่ง
   sent,        // ส่งแล้ว
   delivered,   // ส่งถึงแล้ว
+  received,    // ได้รับแล้ว
   read,        // อ่านแล้ว
   failed,      // ส่งไม่สำเร็จ
+  pending,     // รอการส่ง
   synced,      // ซิงก์ขึ้น cloud แล้ว
 }
 
@@ -20,6 +23,7 @@ enum DeviceRole {
   sosUser,     // ผู้ขอความช่วยเหลือ
   rescuer,     // หน่วยกู้ภัย
   normal,      // ผู้ใช้ทั่วไป
+  relay,       // อุปกรณ์ส่งต่อข้อมูล (Mesh relay)
 }
 
 class ChatMessage {
@@ -36,6 +40,10 @@ class ChatMessage {
   final double? latitude;
   final double? longitude;
   final bool isEmergency;
+  final int? ttl;          // Time-to-live for mesh routing
+  final int? hopCount;     // Number of hops in mesh network
+  final bool requiresAck;  // Whether message requires acknowledgment
+  final List<String>? visitedNodes; // Nodes this message has visited (for loop prevention)
 
   ChatMessage({
     required this.id,
@@ -51,6 +59,10 @@ class ChatMessage {
     this.latitude,
     this.longitude,
     this.isEmergency = false,
+    this.ttl,
+    this.hopCount,
+    this.requiresAck = false,
+    this.visitedNodes,
   });
 
   ChatMessage copyWith({
@@ -67,6 +79,10 @@ class ChatMessage {
     double? latitude,
     double? longitude,
     bool? isEmergency,
+    int? ttl,
+    int? hopCount,
+    bool? requiresAck,
+    List<String>? visitedNodes,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -82,6 +98,10 @@ class ChatMessage {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       isEmergency: isEmergency ?? this.isEmergency,
+      ttl: ttl ?? this.ttl,
+      hopCount: hopCount ?? this.hopCount,
+      requiresAck: requiresAck ?? this.requiresAck,
+      visitedNodes: visitedNodes ?? this.visitedNodes,
     );
   }
 
@@ -100,6 +120,10 @@ class ChatMessage {
       'latitude': latitude,
       'longitude': longitude,
       'isEmergency': isEmergency,
+      'ttl': ttl,
+      'hopCount': hopCount,
+      'requiresAck': requiresAck,
+      'visitedNodes': visitedNodes,
     };
   }
 
@@ -118,6 +142,79 @@ class ChatMessage {
       latitude: json['latitude'],
       longitude: json['longitude'],
       isEmergency: json['isEmergency'] ?? false,
+      ttl: json['ttl'],
+      hopCount: json['hopCount'],
+      requiresAck: json['requiresAck'] ?? false,
+      visitedNodes: json['visitedNodes']?.cast<String>(),
+    );
+  }
+
+  /// Check if message should be relayed in mesh network
+  bool shouldRelay(String currentNodeId) {
+    if (ttl == null || ttl! <= 0) return false;
+    if (senderId == currentNodeId) return false;
+    if (visitedNodes?.contains(currentNodeId) == true) return false;
+    return true;
+  }
+
+  /// Create a relayed version of this message
+  ChatMessage createRelayedMessage(String relayNodeId) {
+    final newVisitedNodes = [...(visitedNodes ?? []), relayNodeId];
+    return copyWith(
+      ttl: ttl != null ? ttl! - 1 : null,
+      hopCount: (hopCount ?? 0) + 1,
+      visitedNodes: newVisitedNodes,
+    );
+  }
+
+  /// Create SOS message
+  factory ChatMessage.createSOS({
+    required String senderId,
+    required String senderName,
+    required String content,
+    required double latitude,
+    required double longitude,
+    Map<String, dynamic>? metadata,
+  }) {
+    return ChatMessage(
+      id: 'sos_${DateTime.now().millisecondsSinceEpoch}',
+      senderId: senderId,
+      senderName: senderName,
+      receiverId: 'broadcast',
+      content: content,
+      type: MessageType.sos,
+      status: MessageStatus.pending,
+      timestamp: DateTime.now(),
+      latitude: latitude,
+      longitude: longitude,
+      isEmergency: true,
+      ttl: 10, // SOS messages have higher TTL
+      hopCount: 0,
+      requiresAck: true,
+      metadata: metadata,
+    );
+  }
+
+  /// Create acknowledgment message
+  factory ChatMessage.createAck({
+    required String senderId,
+    required String senderName,
+    required String originalMessageId,
+    required String receiverId,
+  }) {
+    return ChatMessage(
+      id: 'ack_${DateTime.now().millisecondsSinceEpoch}',
+      senderId: senderId,
+      senderName: senderName,
+      receiverId: receiverId,
+      content: 'ACK',
+      type: MessageType.ack,
+      status: MessageStatus.pending,
+      timestamp: DateTime.now(),
+      metadata: {'originalMessageId': originalMessageId},
+      ttl: 5,
+      hopCount: 0,
+      requiresAck: false,
     );
   }
 }

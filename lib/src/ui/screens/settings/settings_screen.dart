@@ -1418,9 +1418,9 @@ class SettingsScreen extends ConsumerWidget {
         ),
       );
 
-      // Update role in AuthService (this will trigger providers to update)
+      // Update role in AuthService with full cloud sync (this will trigger providers to update)
       final authService = AuthService.instance;
-      final success = await authService.updateRole(newRole.name);
+      final success = await authService.changeRole(newRole.name, forceCloudSync: true);
       
       if (!success) {
         throw Exception('Failed to update role in AuthService');
