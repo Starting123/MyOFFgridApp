@@ -9,12 +9,12 @@ import 'package:path/path.dart' as path;
 import 'package:geolocator/geolocator.dart';
 import '../models/chat_models.dart';
 import 'local_db_service.dart';
-import 'nearby_service.dart';
+import 'nearby_service_fixed.dart' as NearbyServiceFixed;
 import 'p2p_service.dart';
 
 class MultimediaChatService {
   final LocalDatabaseService _dbService = LocalDatabaseService();
-  final NearbyService _nearbyService = NearbyService.instance;
+  final NearbyServiceFixed.NearbyService _nearbyService = NearbyServiceFixed.NearbyService.instance;
   final P2PService _p2pService = P2PService.instance;
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -347,7 +347,7 @@ class MultimediaChatService {
         'isEmergency': message.isEmergency,
         'filePath': message.filePath,
       });
-      await _nearbyService.sendMessage(messageJson, type: 'chat');
+      await _nearbyService.sendMessageLegacy(messageJson, type: 'chat');
       await _updateMessageStatus(message.id, MessageStatus.sent);
       sent = true;
       debugPrint('✅ Message sent via Nearby Connections');

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import '../models/enhanced_message_model.dart';
-import '../services/nearby_service.dart';
+import '../services/nearby_service_fixed.dart' as NearbyServiceFixed;
 import '../services/location_service.dart';
 import '../services/enhanced_message_queue_service.dart';
 import '../services/local_db_service.dart';
@@ -27,7 +27,7 @@ class SOSBroadcastService {
   static SOSBroadcastService get instance => _instance;
   SOSBroadcastService._internal();
 
-  final NearbyService _nearbyService = NearbyService.instance;
+  final NearbyServiceFixed.NearbyService _nearbyService = NearbyServiceFixed.NearbyService.instance;
   final LocationService _locationService = LocationService.instance;
   final MessageQueueService _messageQueue = MessageQueueService.instance;
   final LocalDatabaseService _localDb = LocalDatabaseService();
@@ -143,7 +143,7 @@ class SOSBroadcastService {
       await _localDb.insertMessage(sosMessage);
 
       // Broadcast via NearbyService
-      await _nearbyService.sendMessage(
+      await _nearbyService.sendMessageLegacy(
         _formatSOSMessage(sosBroadcast),
         type: 'sos_broadcast'
       );
@@ -162,7 +162,7 @@ class SOSBroadcastService {
     try {
       final position = await _locationService.getCurrentPosition();
       if (position != null) {
-        await _nearbyService.sendMessage(
+        await _nearbyService.sendMessageLegacy(
           'SOS_LOCATION_UPDATE|${_activeSosId}|${position.latitude}|${position.longitude}|${DateTime.now().toIso8601String()}',
           type: 'sos_location'
         );
@@ -201,7 +201,7 @@ class SOSBroadcastService {
   Future<void> _sendSOSAcknowledgment(SOSBroadcast sosBroadcast) async {
     try {
       final ackMessage = 'SOS_ACK|${sosBroadcast.id}|RESCUER_RESPONDING|${DateTime.now().toIso8601String()}';
-      await _nearbyService.sendMessage(ackMessage, type: 'sos_ack');
+      await _nearbyService.sendMessageLegacy(ackMessage, type: 'sos_ack');
       Logger.info('SOS Acknowledgment sent for: ${sosBroadcast.id}', 'sos');
     } catch (e) {
       Logger.error('Failed to send SOS acknowledgment: $e', 'sos');
