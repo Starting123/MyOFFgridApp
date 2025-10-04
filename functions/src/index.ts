@@ -37,7 +37,7 @@ export const notifySOSAlert = onDocumentCreated("sos_alerts/{alertId}", async (e
       .where("isOnline", "==", true)
       .get();
 
-    const notifications: Promise<admin.messaging.MessagingDevicesResponse>[] = [];
+    const notifications: Promise<string>[] = [];
 
     for (const userDoc of nearbyUsers.docs) {
       const userData = userDoc.data();
@@ -255,8 +255,8 @@ export const trackAnalytics = onCall(async (request) => {
 
     return { success: true };
 
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Error tracking analytics:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 });
